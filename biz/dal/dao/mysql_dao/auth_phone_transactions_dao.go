@@ -52,34 +52,6 @@ func (dao *AuthPhoneTransactionsDAO) Insert(do *dataobject.AuthPhoneTransactions
 	}
 	return id
 }
-type phoneCode struct {
-	phone string
-	code string
-}
-
-func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
-	var query = "select phone_login where phone = ?"
-	rows, err := dao.db.Queryx(query, phone)
-	if err != nil {
-		errDesc := fmt.Sprintf("Queryx in SelectByPhoneCodeHash(_), error: %v", err)
-		glog.Error(errDesc)
-		panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
-	}
-	defer rows.Close()
-	do := &phoneCode{}
-	if rows.Next() {
-		err = rows.StructScan(do)
-		if err != nil {
-			errDesc := fmt.Sprintf("no phone code", err)
-			glog.Error(errDesc)
-			panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
-		}
-	} else {
-		return "0"
-	}
-	return do.code
-}
-
 
 // select id, code, code_expired, sent_code_type, flash_call_pattern, next_code_type, attempts, state from auth_phone_transactions where auth_key_id = :auth_key_id and phone_number = :phone_number and transaction_hash = :transaction_hash
 // TODO(@benqi): sqlmap

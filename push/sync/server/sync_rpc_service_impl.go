@@ -30,6 +30,23 @@ import (
 	update3 "github.com/nebulaim/telegramd/biz/core/update"
 )
 
+/*
+ android client source code:
+    private int getUpdateType(TLRPC.Update update) {
+        if (update instanceof TLRPC.TL_updateNewMessage || update instanceof TLRPC.TL_updateReadMessagesContents || update instanceof TLRPC.TL_updateReadHistoryInbox ||
+                update instanceof TLRPC.TL_updateReadHistoryOutbox || update instanceof TLRPC.TL_updateDeleteMessages || update instanceof TLRPC.TL_updateWebPage ||
+                update instanceof TLRPC.TL_updateEditMessage) {
+            return 0;
+        } else if (update instanceof TLRPC.TL_updateNewEncryptedMessage) {
+            return 1;
+        } else if (update instanceof TLRPC.TL_updateNewChannelMessage || update instanceof TLRPC.TL_updateDeleteChannelMessages || update instanceof TLRPC.TL_updateEditChannelMessage ||
+                update instanceof TLRPC.TL_updateChannelWebPage) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+ */
 
 // messages.AffectedHistory
 // messages.AffectedMessages
@@ -283,7 +300,6 @@ func processUpdatesRequest(request *mtproto.UpdatesRequest) (*mtproto.ClientUpda
 		for _, update := range updates2.GetUpdates() {
 			switch update.GetConstructor() {
 			case mtproto.TLConstructor_CRC32_updateNewMessage,
-				 mtproto.TLConstructor_CRC32_updateDeleteMessages,
 				 mtproto.TLConstructor_CRC32_updateReadHistoryOutbox,
 				 mtproto.TLConstructor_CRC32_updateReadHistoryInbox,
 				 mtproto.TLConstructor_CRC32_updateWebPage,
@@ -298,6 +314,34 @@ func processUpdatesRequest(request *mtproto.UpdatesRequest) (*mtproto.ClientUpda
 				update.Data2.Pts = pts
 				update.Data2.PtsCount = ptsCount
 				update3.AddToPtsQueue(pushUserId, pts, ptsCount, update)
+			case mtproto.TLConstructor_CRC32_updateDeleteMessages:
+				deleteMessages := update.To_UpdateDeleteMessages().GetMessages()
+
+				// TODO(@benqi): NextPtsCountId
+				for i := 0; i < len(deleteMessages); i++ {
+					pts = int32(update3.NextPtsId(base.Int32ToString(pushUserId)))
+				}
+
+				ptsCount = int32(len(deleteMessages))
+				totalPtsCount += ptsCount
+				// @benqi: 以上都有Pts和PtsCount
+				update.Data2.Pts = pts
+				update.Data2.PtsCount = ptsCount
+				update3.AddToPtsQueue(pushUserId, pts, ptsCount, update)
+			case mtproto.TLConstructor_CRC32_updateNewChannelMessage:
+				if request.PushType == mtproto.SyncType_SYNC_TYPE_USER_NOTME {
+					channelMessage := update.To_UpdateNewChannelMessage().GetMessage()
+
+					// TODO(@benqi): Check toId() invalid.
+					pts = int32(update3.NextChannelPtsId(base.Int32ToString(channelMessage.GetData2().GetToId().GetData2().GetChannelId())))
+					ptsCount = 1
+					totalPtsCount += 1
+
+					// @benqi: 以上都有Pts和PtsCount
+					update.Data2.Pts = pts
+					update.Data2.PtsCount = ptsCount
+					update3.AddToChannelPtsQueue(channelMessage.GetData2().GetToId().GetData2().GetChannelId(), pts, ptsCount, update)
+				}
 			}
 		}
 

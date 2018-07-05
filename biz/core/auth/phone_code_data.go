@@ -25,7 +25,6 @@ import (
 	"github.com/nebulaim/telegramd/mtproto"
 	"time"
 	"github.com/nebulaim/telegramd/baselib/crypto"
-	"errors"
 )
 
 // TODO(@benqi): 当前测试环境code统一为"12345"
@@ -254,15 +253,8 @@ func (code *phoneCodeData) DoSendCode(phoneRegistered, allowFlashCall, currentNu
 
 	// 使用最简单的办法，每次新建
 	sentCodeType, nextCodeType := makeCodeType(phoneRegistered, allowFlashCall, currentNumber)
-	//code.tableId = dao.GetAuthPhoneTransactionsDAO(dao.DB_MASTER).SelectByPhoneCodeHash()
 	// TODO(@benqi): gen rand number
-	phoneCode := dao.GetAuthPhoneTransactionsDAO(dao.DB_MASTER).SelectCode(code.phoneNumber)
-	code.code = phoneCode
-	if code.code == "0"{
-		var err error = errors.New("no phone")
-		glog.Error(err)
-		return err
-	}
+	code.code = "12345"
 	// code.codeHash = fmt.Sprintf("%20d", helper.NextSnowflakeId())
 	code.codeHash = crypto.GenerateStringNonce(16)
 	code.codeExpired = int32(time.Now().Unix() + 15*60)
