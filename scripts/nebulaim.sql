@@ -746,7 +746,11 @@ CREATE TABLE `user_import_contacts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
-
+CREATE TABLE `phone_login` (
+  `phone` varchar(32) not NULL,
+  `code` varchar(32),
+  UNIQUE(`phone`)
+)
 --
 -- 表的结构 `user_notify_settings`
 --
@@ -1466,6 +1470,8 @@ ALTER TABLE `user_qts_updates`
 --
 ALTER TABLE `user_sticker_sets`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+
 
 --
 -- 使用表AUTO_INCREMENT `wall_papers`
