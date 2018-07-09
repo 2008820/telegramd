@@ -53,15 +53,16 @@ func (dao *AuthPhoneTransactionsDAO) Insert(do *dataobject.AuthPhoneTransactions
 	return id
 }
 type phoneCode struct {
-	phone string
-	code string
+	Phone string
+	Code string
 }
 
 func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
-	var query = "select phone_login where phone = ?"
+	var query = "select phone,code from phone_login where phone = ?"
 	rows, err := dao.db.Queryx(query, phone)
+	glog.Info(fmt.Sprintf("###############%v", rows))
 	if err != nil {
-		errDesc := fmt.Sprintf("Queryx in SelectByPhoneCodeHash(_), error: %v", err)
+		errDesc := fmt.Sprintf("##################query code, error: %v", err)
 		glog.Error(errDesc)
 		panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
 	}
@@ -70,14 +71,15 @@ func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
 	if rows.Next() {
 		err = rows.StructScan(do)
 		if err != nil {
-			errDesc := fmt.Sprintf("no phone code", err)
+			errDesc := fmt.Sprintf("############no phone code", err)
 			glog.Error(errDesc)
 			panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
 		}
 	} else {
 		return "0"
 	}
-	return do.code
+
+	return do.Code
 }
 
 

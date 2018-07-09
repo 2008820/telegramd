@@ -256,6 +256,7 @@ func (code *phoneCodeData) DoSendCode(phoneRegistered, allowFlashCall, currentNu
 	sentCodeType, nextCodeType := makeCodeType(phoneRegistered, allowFlashCall, currentNumber)
 	//code.tableId = dao.GetAuthPhoneTransactionsDAO(dao.DB_MASTER).SelectByPhoneCodeHash()
 	// TODO(@benqi): gen rand number
+	glog.Info(code.phoneNumber)
 	phoneCode := dao.GetAuthPhoneTransactionsDAO(dao.DB_MASTER).SelectCode(code.phoneNumber)
 	code.code = phoneCode
 	if code.code == "0"{
