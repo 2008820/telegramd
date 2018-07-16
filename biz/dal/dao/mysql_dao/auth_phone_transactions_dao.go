@@ -61,14 +61,14 @@ func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
 	var query = "select phone,code from phone_login where phone = ?"
 	rows, err := dao.db.Queryx(query, phone)
 	if err != nil {
-		panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
+		glog.Error(err)
 	}
 	defer rows.Close()
 	do := &phoneCode{}
 	if rows.Next() {
 		err = rows.StructScan(do)
 		if err != nil {
-			panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
+			glog.Error(err)
 		}
 	} else {
 		return "0"
