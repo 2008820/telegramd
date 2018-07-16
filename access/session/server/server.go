@@ -90,6 +90,7 @@ func NewSessionServer(configPath string) *SessionServer {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // AppInstance interface
+// 初始话组建
 func (s *SessionServer) Initialize() error {
 	var err error
 

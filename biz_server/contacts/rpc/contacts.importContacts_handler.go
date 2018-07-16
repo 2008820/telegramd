@@ -33,12 +33,14 @@ import (
 // contacts.importContacts#2c800be5 contacts:Vector<InputContact> = contacts.ImportedContacts;
 func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, request *mtproto.TLContactsImportContacts) (*mtproto.Contacts_ImportedContacts, error) {
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
-	glog.Infof("contacts.importContacts#2c800be5 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
+	//glog.Infof("contacts.importContacts#2c800be5 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
 	var (
 		err error
 		importedContacts *mtproto.TLContactsImportedContacts
 	)
+	return importedContacts.To_Contacts_ImportedContacts(), nil
+
 
 	if len(request.Contacts) == 0 {
 		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_BAD_REQUEST)

@@ -137,6 +137,7 @@ func (s *MessagesServiceImpl) MessagesSendMessage(ctx context.Context, request *
 			state *mtproto.ClientUpdatesState
 			sentMessage *mtproto.TLUpdateShortSentMessage
 		)
+		// 正常聊天信息
 		if peer.PeerType == base.PEER_USER || peer.PeerType == base.PEER_CHAT {
 			messageOutbox := message2.CreateMessageOutboxByNew(md.UserId, peer, request.GetRandomId(), outboxMessage.To_Message(), func(messageId int32) {
 				// 更新会话信息
@@ -189,7 +190,6 @@ func (s *MessagesServiceImpl) MessagesSendMessage(ctx context.Context, request *
 					}
 				}
 			}
-
 			glog.Infof("messages.sendMessage#fa88427a - reply: %s", logger.JsonDebugData(sentMessage))
 			return sentMessage.To_Updates(), nil
 		} else {
