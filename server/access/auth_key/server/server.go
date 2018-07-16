@@ -18,17 +18,17 @@
 package server
 
 import (
-	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/net2"
-	"github.com/nebulaim/telegramd/baselib/mysql_client"
-	"github.com/nebulaim/telegramd/server/access/auth_key/dal/dao"
-	"time"
-	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"google.golang.org/grpc"
-	"github.com/nebulaim/telegramd/proto/zproto"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"fmt"
-	// "github.com/nebulaim/telegramd/mtproto2"
+"github.com/golang/glog"
+"github.com/nebulaim/telegramd/baselib/net2"
+"github.com/nebulaim/telegramd/baselib/mysql_client"
+"github.com/nebulaim/telegramd/server/access/auth_key/dal/dao"
+"time"
+"github.com/nebulaim/telegramd/baselib/grpc_util"
+"google.golang.org/grpc"
+"github.com/nebulaim/telegramd/proto/zproto"
+"github.com/nebulaim/telegramd/proto/mtproto"
+"fmt"
+// "github.com/nebulaim/telegramd/mtproto2"
 )
 
 type AuthKeyServer struct {
@@ -96,6 +96,10 @@ func (s *AuthKeyServer) OnServerMessageDataArrived(conn *net2.TcpConnection, md 
 	hrsp, err := s.handshake.onHandshake(conn, hmsg)
 	if err != nil {
 		glog.Error(err)
+		return nil
+	}
+
+	if hrsp == nil {
 		return nil
 	}
 

@@ -60,10 +60,7 @@ type phoneCode struct {
 func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
 	var query = "select phone,code from phone_login where phone = ?"
 	rows, err := dao.db.Queryx(query, phone)
-	glog.Info(fmt.Sprintf("###############%v", rows))
 	if err != nil {
-		errDesc := fmt.Sprintf("##################query code, error: %v", err)
-		glog.Error(errDesc)
 		panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
 	}
 	defer rows.Close()
@@ -71,8 +68,6 @@ func (dao *AuthPhoneTransactionsDAO) SelectCode(phone string) string {
 	if rows.Next() {
 		err = rows.StructScan(do)
 		if err != nil {
-			errDesc := fmt.Sprintf("############no phone code", err)
-			glog.Error(errDesc)
 			panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_DBERR), errDesc))
 		}
 	} else {
