@@ -98,7 +98,7 @@ func (s *AuthKeyServer) OnServerMessageDataArrived(conn *net2.TcpConnection, md 
 		glog.Error(err)
 		return nil
 	}
-
+	
 	if hrsp == nil {
 		return nil
 	}
