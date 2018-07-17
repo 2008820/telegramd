@@ -1017,17 +1017,20 @@ CREATE TABLE `wall_papers` (
   `deleted_at` bigint(20) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+
+
 CREATE TABLE `phone_login` (
   `id` int auto_increment primary key,
   `phone` varchar(32) not NULL,
   `code` varchar(32),
   UNIQUE(`phone`)
-)
-
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexes for dumped tables
 --
+
 
 --
 -- Indexes for table `apps`
