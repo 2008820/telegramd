@@ -23,11 +23,6 @@ import (
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/base"
-	"math"
-	"github.com/nebulaim/telegramd/biz/core/message"
-	"github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/chat"
 )
 
 // request: {"peer":{"constructor":2072935910,"data2":{"user_id":4,"access_hash":405858233924775823}},"offset_id":2147483647,"offset_date":2147483647,"limit":1,"max_id":2147483647,"min_id":1}
