@@ -27,7 +27,6 @@ import (
 	"github.com/nebulaim/telegramd/service/idgen/client"
 	"github.com/golang/glog"
 	"fmt"
-	"github.com/nebulaim/telegramd/baselib/bytes2"
 )
 
 type handshakeState struct {
@@ -140,8 +139,6 @@ func (s *FrontendServer) newMetadata(conn *net2.TcpConnection) *zproto.ZProtoMet
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // MTProtoServerCallback
 func (s *FrontendServer) OnServerNewConnection(conn *net2.TcpConnection) {
-	glog.Infof("onServerNewConnection - peer(%s), ctx: {%v}", conn, conn.Context)
-
 	conn.Context = &connContext{
 		state: zproto.STATE_CONNECTED2,
 		md: &zproto.ZProtoMetadata{
@@ -156,27 +153,31 @@ func (s *FrontendServer) OnServerNewConnection(conn *net2.TcpConnection) {
 		},
 		seqNum: 1,
 	}
+	glog.Infof("onServerNewConnection - {peer: %s, ctx: {%v}}", conn, conn.Context)
 }
 
 func (s *FrontendServer) OnServerMessageDataArrived(conn *net2.TcpConnection, msg *mtproto.MTPRawMessage) error {
+	md := s.newMetadata(conn)
+	glog.Infof("onServerMessageDataArrived - receive data: {peer: %s, md: %s, msg: %s}", conn, md, msg)
+
 	ctx, _ := conn.Context.(*connContext)
 
 	var err error
 	if msg.AuthKeyId() == 0 {
 		if ctx.getState() == zproto.STATE_AUTH_KEY {
-			err = fmt.Errorf("invalid state STATE_AUTH_KEY")
-			glog.Error(err)
+			err = fmt.Errorf("invalid state STATE_AUTH_KEY: %d", ctx.getState())
+			glog.Errorf("process msg error: {%v} - {peer: %s, md: %s, msg: %s}", err, conn, md, msg)
 			conn.Close()
 		} else {
-			err = s.onServerUnencryptedRawMessage(ctx, conn, msg)
+			err = s.onServerUnencryptedRawMessage(ctx, conn, md, msg)
 		}
 	} else {
 		if !ctx.encryptedMessageAble() {
-			err = fmt.Errorf("invalid state: {state: %d, handshakeState: {%v}}, peer(%s)", ctx.state, ctx.handshakeState, conn)
-			glog.Error(err)
+			err = fmt.Errorf("invalid state: {state: %d, handshakeState: {%v}}", ctx.state, ctx.handshakeState)
+			glog.Errorf("process msg error: {%v} - {peer: %s, md: %s, msg: %s}", err, conn, md, msg)
 			conn.Close()
 		} else {
-			err = s.onServerEncryptedRawMessage(ctx, conn, msg)
+			err = s.onServerEncryptedRawMessage(ctx, conn, md, msg)
 		}
 	}
 
@@ -184,7 +185,7 @@ func (s *FrontendServer) OnServerMessageDataArrived(conn *net2.TcpConnection, ms
 }
 
 func (s *FrontendServer) OnServerConnectionClosed(conn *net2.TcpConnection) {
-	glog.Infof("onServerConnectionClosed - peer(%s)", conn)
+	glog.Infof("onServerConnectionClosed - {peer: %s}", conn)
 	s.sendClientClosed(conn)
 }
 
@@ -194,17 +195,17 @@ func (s *FrontendServer) OnNewClient(client *net2.TcpClient) {
 	glog.Infof("onNewClient - peer(%s)", client.GetConnection())
 }
 
-func (s *FrontendServer) OnClientMessageArrived(client *net2.TcpClient, md *zproto.ZProtoMetadata, sessionId, messageId uint64,  seqNo uint32, msg zproto.MessageBase) error {
+func (s *FrontendServer) OnClientMessageArrived(client *net2.TcpClient, md *zproto.ZProtoMetadata, sessionId, messageId uint64, seqNo uint32, msg zproto.MessageBase) error {
 	var err error
 
 	switch msg.(type) {
 	case *zproto.ZProtoHandshakeMessage:
-		err = s.onClientHandshakeMessage(client, msg.(*zproto.ZProtoHandshakeMessage))
+		err = s.onClientHandshakeMessage(client, md, msg.(*zproto.ZProtoHandshakeMessage))
 	case *zproto.ZProtoSessionData:
-		err = s.onClientSessionData(client, msg.(*zproto.ZProtoSessionData))
+		err = s.onClientSessionData(client, md, msg.(*zproto.ZProtoSessionData))
 	default:
 		err = fmt.Errorf("invalid msg: %v", msg)
-		glog.Errorf("OnClientMessageArrived - invalid msg: peer(%s), zmsg: {%v}",
+		glog.Errorf("onClientMessageArrived - invalid msg: peer(%s), zmsg: {%v}",
 			client.GetConnection(),
 			msg)
 	}
@@ -222,8 +223,8 @@ func (s *FrontendServer) OnClientTimer(client *net2.TcpClient) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-func (s *FrontendServer) onClientHandshakeMessage(client *net2.TcpClient, handshake *zproto.ZProtoHandshakeMessage) error {
-	glog.Infof("onClientDataArrived - handshake: peer(%s), state: {%v}",
+func (s *FrontendServer) onClientHandshakeMessage(client *net2.TcpClient, md *zproto.ZProtoMetadata, handshake *zproto.ZProtoHandshakeMessage) error {
+	glog.Infof("onClientHandshakeMessage - handshake: peer(%s), state: {%v}",
 		client.GetConnection(),
 		handshake.State)
 
@@ -245,11 +246,17 @@ func (s *FrontendServer) onClientHandshakeMessage(client *net2.TcpClient, handsh
 		ctx.Lock()
 		ctx.handshakeState = handshake.State
 		ctx.Unlock()
+
+		glog.Infof("onClientHandshakeMessage - sendToClient to: {peer: %s, md: %s, handshake: %s}",
+			conn,
+			md,
+			handshake)
+
 		return conn.Send(&mtproto.MTPRawMessage{Payload: handshake.MTPRawData})
 	}
 }
 
-func (s *FrontendServer) onClientSessionData(client *net2.TcpClient, sessData *zproto.ZProtoSessionData) error {
+func (s *FrontendServer) onClientSessionData(client *net2.TcpClient, md *zproto.ZProtoMetadata, sessData *zproto.ZProtoSessionData) error {
 	///////////////////////////////////////////////////////////////////
 	conn := s.getConnBySessionID(sessData.SessionId)
 	// s.server443.GetConnection(zmsg.SessionId)
@@ -258,23 +265,21 @@ func (s *FrontendServer) onClientSessionData(client *net2.TcpClient, sessData *z
 		return nil
 	}
 
-	glog.Infof("onClientSessionData - send clientManager to: peer(%s), session_id: %d, bufLen: %d, buf: \n%s",
+	glog.Infof("onClientSessionData - sendToClient to: {peer: %s, md: %s, sessData: %s}",
 		conn,
-		sessData.SessionId,
-		len(sessData.MtpRawData),
-		bytes2.DumpSize(256, sessData.MtpRawData))
-
+		md,
+		sessData)
 	return conn.Send(&mtproto.MTPRawMessage{Payload: sessData.MtpRawData})
 }
 
 func (s *FrontendServer) genSessionId(conn *net2.TcpConnection) uint64 {
 	var sid = conn.GetConnID()
 	if conn.Name() == "frontend443" {
-		// sid = sid | 0 << 56
+		// sid = sid | 0 << 60
 	} else if conn.Name() == "frontend80" {
-		sid = sid | 1 << 56
+		sid = sid | 1 << 60
 	} else if conn.Name() == "frontend5222" {
-		sid = sid | 2 << 56
+		sid = sid | 2 << 60
 	}
 
 	return sid
@@ -283,7 +288,7 @@ func (s *FrontendServer) genSessionId(conn *net2.TcpConnection) uint64 {
 func (s *FrontendServer) getConnBySessionID(id uint64) *net2.TcpConnection {
 	//
 	var server *mtproto.MTProtoServer
-	sid := id >> 56
+	sid := id >> 60
 	if sid == 0 {
 		server = s.server443
 	} else if sid == 1 {
@@ -299,8 +304,8 @@ func (s *FrontendServer) getConnBySessionID(id uint64) *net2.TcpConnection {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-func (s *FrontendServer) onServerUnencryptedRawMessage(ctx *connContext, conn *net2.TcpConnection, mmsg *mtproto.MTPRawMessage) error {
-	glog.Infof("onUnencryptedRawMessage - peer(%s) recv data, len = %d, ctx: %v", conn, len(mmsg.Payload), ctx)
+func (s *FrontendServer) onServerUnencryptedRawMessage(ctx *connContext, conn *net2.TcpConnection, md *zproto.ZProtoMetadata, mmsg *mtproto.MTPRawMessage) error {
+	glog.Infof("onServerUnencryptedRawMessage - receive data: {peer: %s, md: %s, ctx: %s, msg: %s}", conn, ctx, md, mmsg)
 
 	ctx.Lock()
 	if ctx.state == zproto.STATE_CONNECTED2 {
@@ -317,11 +322,13 @@ func (s *FrontendServer) onServerUnencryptedRawMessage(ctx *connContext, conn *n
 		State:      ctx.handshakeState,
 		MTPRawData: mmsg.Payload,
 	}
-	return s.client.SendMessage("handshake", hmsg)
+
+	// glog.Infof("SendMessage - handshake: {peer: %s, md: %s, ctx: %s, msg: %s}", conn, ctx, md, mmsg)
+	return s.client.SendMessage("handshake", s.newMetadata(conn), hmsg)
 }
 
-func (s *FrontendServer) onServerEncryptedRawMessage(ctx *connContext, conn *net2.TcpConnection, mmsg *mtproto.MTPRawMessage) error {
-	glog.Infof("onEncryptedRawMessage - peer(%s) recv data, len = %d, auth_key_id = %d", conn, len(mmsg.Payload), mmsg.AuthKeyId)
+func (s *FrontendServer) onServerEncryptedRawMessage(ctx *connContext, conn *net2.TcpConnection, md *zproto.ZProtoMetadata, mmsg *mtproto.MTPRawMessage) error {
+	glog.Infof("onServerEncryptedRawMessage - receive data: {peer: %s, md: %s, ctx: %s, msg: %s}", conn, ctx, md, mmsg)
 
 	sessData := &zproto.ZProtoSessionData{
 		ConnType:   mmsg.ConnType(),
@@ -329,18 +336,18 @@ func (s *FrontendServer) onServerEncryptedRawMessage(ctx *connContext, conn *net
 		MtpRawData: mmsg.Payload,
 	}
 
-	return s.client.SendKetamaMessage("session", base.Int64ToString(mmsg.AuthKeyId()), sessData, func(addr string) {
-		s.checkAndSendClientNew(ctx, conn, addr, mmsg.AuthKeyId())
+	return s.client.SendKetamaMessage("session", base.Int64ToString(mmsg.AuthKeyId()), md, sessData, func(addr string) {
+		s.checkAndSendClientNew(ctx, conn, addr, mmsg.AuthKeyId(), md)
 	})
 }
 
-func (s *FrontendServer) checkAndSendClientNew(ctx *connContext, conn *net2.TcpConnection, kaddr string, authKeyId int64) error {
+func (s *FrontendServer) checkAndSendClientNew(ctx *connContext, conn *net2.TcpConnection, kaddr string, authKeyId int64, md *zproto.ZProtoMetadata) error {
 	var err error
 	if ctx.sessionAddr == "" {
 		clientNew := &zproto.ZProtoSessionClientNew{
 			// MTPMessage: mmsg,
 		}
-		err = s.client.SendMessageToAddress("session", kaddr, clientNew)
+		err = s.client.SendMessageToAddress("session", kaddr, s.newMetadata(conn), clientNew)
 		if err == nil {
 			ctx.sessionAddr = kaddr
 			ctx.authKeyId = authKeyId
@@ -364,6 +371,6 @@ func (s *FrontendServer) sendClientClosed(conn *net2.TcpConnection) {
 		return
 	}
 
-	s.client.SendKetamaMessage("session", base.Int64ToString(ctx.authKeyId), &zproto.ZProtoSessionClientClosed{}, nil)
+	s.client.SendKetamaMessage("session", base.Int64ToString(ctx.authKeyId), s.newMetadata(conn), &zproto.ZProtoSessionClientClosed{}, nil)
 }
 
