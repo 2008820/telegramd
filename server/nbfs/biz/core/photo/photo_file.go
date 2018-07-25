@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/disintegration/imaging"
 	"github.com/golang/glog"
-	base2 "github.com/nebulaim/telegramd/biz/base"
+	base2 "github.com/nebulaim/telegramd/server/nbfs/biz/base"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"github.com/nebulaim/telegramd/server/nbfs/biz/dal/dataobject"
 	"image"
