@@ -19,8 +19,8 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
 )
@@ -43,7 +43,7 @@ func (s *MessagesServiceImpl) MessagesGetHistoryLayer71(ctx context.Context, req
 		Hash:       0,
 	}
 
-	messagesMessages := getHistoryMessages(md, requestLayer71)
+	messagesMessages := s.getHistoryMessages(md, requestLayer71)
 
 	glog.Infof("messages.getHistoryLayer71#afa92846 - reply: %s", logger.JsonDebugData(messagesMessages))
 	return messagesMessages, nil

@@ -19,25 +19,24 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
 	"github.com/nebulaim/telegramd/server/nbfs/nbfs_client"
+	"golang.org/x/net/context"
 )
 
 /*
 	wallPaper#ccb03657 id:int title:string sizes:Vector<PhotoSize> color:int = WallPaper;
 	wallPaperSolid#63117f24 id:int title:string bg_color:int color:int = WallPaper;
- */
+*/
 
 // account.getWallPapers#c04cfac2 = Vector<WallPaper>;
 func (s *AccountServiceImpl) AccountGetWallPapers(ctx context.Context, request *mtproto.TLAccountGetWallPapers) (*mtproto.Vector_WallPaper, error) {
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
 	glog.Infof("account.getWallPapers#c04cfac2 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 	//
-	wallDataList := account.GetWallPaperList()
+	wallDataList := s.AccountModel.GetWallPaperList()
 
 	walls := &mtproto.Vector_WallPaper{
 		Datas: make([]*mtproto.WallPaper, 0, len(wallDataList)),

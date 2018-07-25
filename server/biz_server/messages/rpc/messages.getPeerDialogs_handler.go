@@ -19,15 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/base"
+	update2 "github.com/nebulaim/telegramd/biz/core/update"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/base"
-	"github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/message"
-	"github.com/nebulaim/telegramd/biz/core/chat"
-	update2 "github.com/nebulaim/telegramd/biz/core/update"
 )
 
 // messages.getPeerDialogs#2d9776b9 peers:Vector<InputPeer> = messages.PeerDialogs;
@@ -41,7 +38,7 @@ func (s *MessagesServiceImpl) MessagesGetPeerDialogs(ctx context.Context, reques
 	userIdList := []int32{md.UserId}
 	chatIdList := []int32{}
 
-	dialogs := user.GetPeersDialogs(md.UserId, request.GetPeers())
+	dialogs := s.UserModel.GetPeersDialogs(md.UserId, request.GetPeers())
 
 	for _, dialog2 := range dialogs {
 		// dialog.Peer
@@ -61,10 +58,10 @@ func (s *MessagesServiceImpl) MessagesGetPeerDialogs(ctx context.Context, reques
 
 	glog.Infof("messageIdList - %v", messageIdList)
 	if len(messageIdList) > 0 {
-		peerDialogs.SetMessages(message.GetMessagesByPeerAndMessageIdList2(md.UserId, messageIdList))
+		peerDialogs.SetMessages(s.MessageModel.GetMessagesByPeerAndMessageIdList2(md.UserId, messageIdList))
 	}
 
-	users := user.GetUsersBySelfAndIDList(md.UserId, userIdList)
+	users := s.UserModel.GetUsersBySelfAndIDList(md.UserId, userIdList)
 	peerDialogs.SetUsers(users)
 	//for _, user := range users {
 	//	if user.GetId() == md.UserId {
@@ -78,7 +75,7 @@ func (s *MessagesServiceImpl) MessagesGetPeerDialogs(ctx context.Context, reques
 	//}
 
 	if len(chatIdList) > 0 {
-		peerDialogs.Data2.Chats = chat.GetChatListBySelfAndIDList(md.UserId, chatIdList)
+		peerDialogs.Data2.Chats = s.ChatModel.GetChatListBySelfAndIDList(md.UserId, chatIdList)
 	}
 
 	state := update2.GetServerUpdatesState(md.AuthId, md.UserId)

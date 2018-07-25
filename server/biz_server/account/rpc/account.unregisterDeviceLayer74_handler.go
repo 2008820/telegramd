@@ -19,12 +19,11 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/core"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
-	"github.com/nebulaim/telegramd/biz/core"
 )
 
 // Layer74
@@ -48,7 +47,7 @@ func (s *AccountServiceImpl) AccountUnregisterDeviceLayer74(ctx context.Context,
 		return nil, err
 	}
 
-	unregistered := account.UnRegisterDevice(int8(request.TokenType), request.Token)
+	unregistered := s.AccountModel.UnRegisterDevice(int8(request.TokenType), request.Token)
 
 	glog.Infof("account.unregisterDevice#65c55b40 - reply: {%v}\n", unregistered)
 	return mtproto.ToBool(unregistered), nil

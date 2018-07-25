@@ -19,15 +19,13 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/biz/base"
-	contact2 "github.com/nebulaim/telegramd/biz/core/contact"
-	"github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
 	updates2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // Android client有三种场景会调用importContacts:
@@ -39,7 +37,7 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 	glog.Infof("contacts.importContacts#2c800be5 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
 	var (
-		err error
+		err              error
 		importedContacts *mtproto.TLContactsImportedContacts
 	)
 
@@ -60,7 +58,7 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 
 	pnumber, err := base.MakePhoneNumberUtil(inputContact.GetPhone(), "")
 	if err != nil {
-		region := user.GetCountryCodeByUser(md.UserId)
+		region := s.UserModel.GetCountryCodeByUser(md.UserId)
 		pnumber, err = base.MakePhoneNumberUtil(inputContact.GetPhone(), region)
 	}
 
@@ -74,7 +72,7 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 	}
 
 	phoneNumber := pnumber.GetNormalizeDigits()
-	contactUser := user.GetUserByPhoneNumber(md.UserId, phoneNumber)
+	contactUser := s.UserModel.GetUserByPhoneNumber(md.UserId, phoneNumber)
 	if contactUser == nil {
 		// 该手机号未注册，我们认为手机号出错
 		//err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_PHONE_CODE_INVALID)
@@ -93,7 +91,7 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 	}
 	// contactUser.SetContact(true)
 	// contactUser.SetMutualContact(true)
-	contactLogic := contact2.MakeContactLogic(md.UserId)
+	contactLogic := s.ContactModel.MakeContactLogic(md.UserId)
 	needUpdate := contactLogic.ImportContact(contactUser.GetId(), phoneNumber, inputContact.GetFirstName(), inputContact.GetLastName())
 	// _ = needUpdate
 
@@ -122,7 +120,7 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 		}}
 		contactUpdates.AddUpdate(contactLink2.To_Update())
 
-		myUser := user.GetUserById(contactUser.GetId(), md.UserId)
+		myUser := s.UserModel.GetUserById(contactUser.GetId(), md.UserId)
 		contactUpdates.AddUser(myUser.To_User())
 		// TODO(@benqi): handle seq
 		sync_client.GetSyncClient().PushToUserUpdatesData(contactUser.GetId(), contactUpdates.ToUpdates())
@@ -130,13 +128,13 @@ func (s *ContactsServiceImpl) ContactsImportContacts(ctx context.Context, reques
 
 	////////////////////////////////////////////////////////////////////////////////////////
 	imported := &mtproto.TLImportedContact{Data2: &mtproto.ImportedContact_Data{
-		UserId: contactUser.GetId(),
+		UserId:   contactUser.GetId(),
 		ClientId: inputContact.GetClientId(),
 	}}
 	// contacts.importedContacts#77d01c3b imported:Vector<ImportedContact> popular_invites:Vector<PopularContact> retry_contacts:Vector<long> users:Vector<User> = contacts.ImportedContacts;
 	importedContacts = &mtproto.TLContactsImportedContacts{Data2: &mtproto.Contacts_ImportedContacts_Data{
 		Imported: []*mtproto.ImportedContact{imported.To_ImportedContact()},
-		Users: []*mtproto.User{contactUser.To_User()},
+		Users:    []*mtproto.User{contactUser.To_User()},
 	}}
 
 	glog.Infof("contacts.importContacts#2c800be5 - reply: %s", logger.JsonDebugData(importedContacts))

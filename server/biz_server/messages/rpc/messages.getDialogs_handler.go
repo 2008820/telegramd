@@ -19,16 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/core/dialog"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
 	"math"
-	"github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/message"
-	"github.com/nebulaim/telegramd/biz/core/chat"
-	"github.com/nebulaim/telegramd/biz/core/channel"
-	"github.com/nebulaim/telegramd/biz/core/dialog"
 )
 
 // android client request source code
@@ -93,7 +89,7 @@ import (
 			req.offset_peer = new TLRPC.TL_inputPeerEmpty();
 		}
 	}
- */
+*/
 // 由客户端代码: offset_id为当前用户最后一条消息ID，offset_peer为最后一条消息的接收者peer
 // offset_date
 // messages.getDialogs#191ba9c5 flags:# exclude_pinned:flags.0?true offset_date:int offset_id:int offset_peer:InputPeer limit:int = messages.Dialogs;
@@ -118,26 +114,26 @@ func (s *MessagesServiceImpl) MessagesGetDialogs(ctx context.Context, request *m
 				panic(mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_BAD_REQUEST), "InputPeer invalid"))
 			}
 		}
-	 */
+	*/
 
 	// dialogs := user.GetDialogsByOffsetId(md.UserId, !request.GetExcludePinned(), offsetId, request.GetLimit())
-	dialogs := user.GetDialogsByOffsetId(md.UserId, false, offsetId, request.GetLimit())
+	dialogs := s.UserModel.GetDialogsByOffsetId(md.UserId, false, offsetId, request.GetLimit())
 	// glog.Infof("dialogs - {%v}", dialogs)
 
 	// messageIdList, userIdList, chatIdList, channelIdList
 	dialogItems := dialog.PickAllIDListByDialogs2(dialogs)
 
-	messages := message.GetMessagesByPeerAndMessageIdList2(md.UserId, dialogItems.MessageIdList)
+	messages := s.MessageModel.GetMessagesByPeerAndMessageIdList2(md.UserId, dialogItems.MessageIdList)
 	for k, v := range dialogItems.ChannelMessageIdMap {
-		m := message.GetChannelMessage(k, v)
+		m := s.MessageModel.GetChannelMessage(k, v)
 		if m != nil {
 			messages = append(messages, m)
 		}
 	}
 
-	users := user.GetUsersBySelfAndIDList(md.UserId, dialogItems.UserIdList)
-	chats := chat.GetChatListBySelfAndIDList(md.UserId, dialogItems.ChatIdList)
-	chats = append(chats, channel.GetChannelListBySelfAndIDList(md.UserId, dialogItems.ChannelIdList)...)
+	users := s.UserModel.GetUsersBySelfAndIDList(md.UserId, dialogItems.UserIdList)
+	chats := s.ChatModel.GetChatListBySelfAndIDList(md.UserId, dialogItems.ChatIdList)
+	chats = append(chats, s.ChannelModel.GetChannelListBySelfAndIDList(md.UserId, dialogItems.ChannelIdList)...)
 
 	messageDialogs := mtproto.TLMessagesDialogs{Data2: &mtproto.Messages_Dialogs_Data{
 		Dialogs:  dialogs,

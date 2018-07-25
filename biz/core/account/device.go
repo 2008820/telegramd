@@ -18,7 +18,6 @@
 package account
 
 import (
-	"github.com/nebulaim/telegramd/biz/dal/dao"
 	"github.com/nebulaim/telegramd/biz/dal/dataobject"
 )
 
@@ -33,27 +32,24 @@ import (
 //	TOKEN_TYPE_INTERNAL_PUSH = 7
 //)
 
-func RegisterDevice(authKeyId int64, userId int32, tokenType int8, token string) bool {
-	slave := dao.GetDevicesDAO(dao.DB_SLAVE)
-	master := dao.GetDevicesDAO(dao.DB_MASTER)
-	do := slave.SelectByToken(tokenType, token)
+func (m *AccountModel) RegisterDevice(authKeyId int64, userId int32, tokenType int8, token string) bool {
+	do := m.dao.DevicesDAO.SelectByToken(tokenType, token)
 	if do == nil {
 		do = &dataobject.DevicesDO{
 			AuthKeyId: authKeyId,
-			UserId: userId,
+			UserId:    userId,
 			TokenType: tokenType,
-			Token: token,
+			Token:     token,
 		}
-		do.Id = master.Insert(do)
+		do.Id = m.dao.DevicesDAO.Insert(do)
 	} else {
-		master.UpdateStateById(0, do.Id)
+		m.dao.DevicesDAO.UpdateStateById(0, do.Id)
 	}
 
 	return true
 }
 
-func UnRegisterDevice(tokenType int8, token string) bool {
-	master := dao.GetDevicesDAO(dao.DB_MASTER)
-	master.UpdateStateByToken(int8(1), tokenType, token)
+func (m *AccountModel) UnRegisterDevice(tokenType int8, token string) bool {
+	m.dao.DevicesDAO.UpdateStateByToken(int8(1), tokenType, token)
 	return true
 }

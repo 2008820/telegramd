@@ -18,17 +18,15 @@
 package rpc
 
 import (
+	"fmt"
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	update2 "github.com/nebulaim/telegramd/biz/core/update"
 	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
 	"golang.org/x/net/context"
 	"time"
-	update2 "github.com/nebulaim/telegramd/biz/core/update"
-	"github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/phone_call"
-	"fmt"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
 )
 
 // phone.receivedCall#17d54f61 peer:InputPhoneCall = Bool;
@@ -39,7 +37,7 @@ func (s *PhoneServiceImpl) PhoneReceivedCall(ctx context.Context, request *mtpro
 	//// TODO(@benqi): check peer
 	peer := request.GetPeer().To_InputPhoneCall()
 
-	callSession, err := phone_call.MakePhoneCallLogcByLoad(peer.GetId())
+	callSession, err := s.PhoneCallModel.MakePhoneCallLogcByLoad(peer.GetId())
 	if err != nil {
 		glog.Errorf("invalid peer: {%v}, err: %v", peer, err)
 		return nil, err
@@ -58,7 +56,7 @@ func (s *PhoneServiceImpl) PhoneReceivedCall(ctx context.Context, request *mtpro
 	}}
 	updatesData.AddUpdate(updatePhoneCall.To_Update())
 	// 2. add users
-	updatesData.AddUsers(user.GetUsersBySelfAndIDList(callSession.AdminId, []int32{md.UserId, callSession.AdminId}))
+	updatesData.AddUsers(s.UserModel.GetUsersBySelfAndIDList(callSession.AdminId, []int32{md.UserId, callSession.AdminId}))
 	// 3. sync
 	sync_client.GetSyncClient().PushToUserUpdatesData(callSession.AdminId, updatesData.ToUpdates())
 

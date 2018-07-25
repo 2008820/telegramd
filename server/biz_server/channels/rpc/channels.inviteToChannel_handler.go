@@ -19,13 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/channel"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	update2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // channels.inviteToChannel#199f3a6c channel:InputChannel users:Vector<InputUser> = Updates;
@@ -40,7 +39,7 @@ func (s *ChannelsServiceImpl) ChannelsInviteToChannel(ctx context.Context, reque
 		return nil, err
 	}
 
-	channelLogic, err := channel.NewChannelLogicById(request.GetChannel().GetData2().GetChannelId())
+	channelLogic, err := s.ChannelModel.NewChannelLogicById(request.GetChannel().GetData2().GetChannelId())
 	if err != nil {
 		glog.Error("channels.inviteToChannel#199f3a6c - error: ", err)
 		return nil, err

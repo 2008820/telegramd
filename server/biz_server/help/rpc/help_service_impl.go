@@ -19,6 +19,7 @@ package rpc
 
 import (
 	"github.com/BurntSushi/toml"
+	"github.com/nebulaim/telegramd/biz/core"
 	model2 "github.com/nebulaim/telegramd/server/biz_server/help/model"
 )
 
@@ -42,4 +43,15 @@ func init() {
 }
 
 type HelpServiceImpl struct {
+}
+
+func NewHelpServiceImpl(models []core.CoreModel) *HelpServiceImpl {
+	impl := &HelpServiceImpl{}
+
+	for _, m := range models {
+		switch m.(type) {
+		}
+	}
+
+	return impl
 }

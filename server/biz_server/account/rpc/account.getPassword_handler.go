@@ -19,24 +19,23 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
 )
 
 /*
  // account.noPassword#96dabc18 new_salt:bytes email_unconfirmed_pattern:string = account.Password;
  // account.password#7c18141c current_salt:bytes new_salt:bytes hint:string has_recovery:Bool email_unconfirmed_pattern:string = account.Password;
- */
+*/
 
 // account.getPassword#548a30f5 = account.Password;
 func (s *AccountServiceImpl) AccountGetPassword(ctx context.Context, request *mtproto.TLAccountGetPassword) (*mtproto.Account_Password, error) {
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
 	glog.Infof("account.getPassword#548a30f5 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
-	passwordLogic, err := account.MakePasswordData(md.UserId)
+	passwordLogic, err := s.AccountModel.MakePasswordData(md.UserId)
 	if err != nil {
 		glog.Error("account.getPassword#548a30f5 - error: ", err)
 		return nil, err

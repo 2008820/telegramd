@@ -19,14 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	user2 "github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/contact"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	updates2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // contacts.block#332b49fc id:InputUser = Bool;
@@ -36,7 +34,7 @@ func (s *ContactsServiceImpl) ContactsBlock(ctx context.Context, request *mtprot
 
 	var (
 		blockId int32
-		id = request.Id
+		id      = request.Id
 	)
 
 	switch id.GetConstructor() {
@@ -44,7 +42,7 @@ func (s *ContactsServiceImpl) ContactsBlock(ctx context.Context, request *mtprot
 		blockId = md.UserId
 	case mtproto.TLConstructor_CRC32_inputUser:
 		// Check access hash
-		if ok := user2.CheckAccessHashByUserId(id.GetData2().GetUserId(), id.GetData2().GetAccessHash()); !ok {
+		if ok := s.UserModel.CheckAccessHashByUserId(id.GetData2().GetUserId(), id.GetData2().GetAccessHash()); !ok {
 			// TODO(@benqi): Add ACCESS_HASH_INVALID codes
 			err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_BAD_REQUEST)
 			glog.Error(err, ": is access_hash error")
@@ -60,19 +58,19 @@ func (s *ContactsServiceImpl) ContactsBlock(ctx context.Context, request *mtprot
 		return nil, err
 	}
 
-	contactLogic :=contact.MakeContactLogic(md.UserId)
+	contactLogic := s.ContactModel.MakeContactLogic(md.UserId)
 	blocked := contactLogic.BlockUser(blockId)
 
 	if blocked {
 		// Sync unblocked: updateUserBlocked
 		updateUserBlocked := &mtproto.TLUpdateUserBlocked{Data2: &mtproto.Update_Data{
-			UserId: blockId,
+			UserId:  blockId,
 			Blocked: mtproto.ToBool(true),
 		}}
 
 		blockedUpdates := updates2.NewUpdatesLogic(md.UserId)
 		blockedUpdates.AddUpdate(updateUserBlocked.To_Update())
-		blockedUpdates.AddUser(user2.GetUserById(md.UserId, blockId).To_User())
+		blockedUpdates.AddUser(s.UserModel.GetUserById(md.UserId, blockId).To_User())
 
 		// TODO(@benqi): handle seq
 		sync_client.GetSyncClient().SyncUpdatesData(md.AuthId, md.SessionId, blockId, blockedUpdates.ToUpdates())

@@ -19,11 +19,10 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
 )
 
 // Forgot password?
@@ -33,7 +32,7 @@ func (s *AuthServiceImpl) AuthRequestPasswordRecovery(ctx context.Context, reque
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
 	glog.Infof("auth.requestPasswordRecovery#d897bc66 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
-	passwordLogic, err := account.MakePasswordData(md.UserId)
+	passwordLogic, err := s.AccountModel.MakePasswordData(md.UserId)
 	if err != nil {
 		glog.Error(err)
 		return nil, err

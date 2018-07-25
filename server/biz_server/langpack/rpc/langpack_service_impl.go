@@ -19,6 +19,7 @@ package rpc
 
 import (
 	"github.com/BurntSushi/toml"
+	"github.com/nebulaim/telegramd/biz/core"
 	model2 "github.com/nebulaim/telegramd/server/biz_server/langpack/model"
 )
 
@@ -35,4 +36,15 @@ func init() {
 }
 
 type LangpackServiceImpl struct {
+}
+
+func NewLangpackServiceImpl(models []core.CoreModel) *LangpackServiceImpl {
+	impl := &LangpackServiceImpl{}
+
+	for _, m := range models {
+		switch m.(type) {
+		}
+	}
+
+	return impl
 }

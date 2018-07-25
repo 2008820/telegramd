@@ -18,13 +18,12 @@
 package rpc
 
 import (
+	"fmt"
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/phone_call"
-	"fmt"
 )
 
 // phone.saveCallDebug#277add7e peer:InputPhoneCall debug:DataJSON = Bool;
@@ -35,7 +34,7 @@ func (s *PhoneServiceImpl) PhoneSaveCallDebug(ctx context.Context, request *mtpr
 	//// TODO(@benqi): check peer
 	peer := request.GetPeer().To_InputPhoneCall()
 
-	callSession, err := phone_call.MakePhoneCallLogcByLoad(peer.GetId())
+	callSession, err := s.PhoneCallModel.MakePhoneCallLogcByLoad(peer.GetId())
 	if err != nil {
 		glog.Errorf("invalid peer: {%v}, err: %v", peer, err)
 		return nil, err

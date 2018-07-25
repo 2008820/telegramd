@@ -19,12 +19,11 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/core"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
-	"github.com/nebulaim/telegramd/biz/core"
 )
 
 // {"token_type":10,"token":"{\"endpoint\":\"https://android.googleapis.com/gcm/send/fFBQfzHLq0I:APA91bF28ucFXm7ZF2T7sf87dKAARGXHzdK3HbK0rrhJMmPZr42amq6B-QASi-mLzOzZ5qsynyvtEOSNNYbvadNKI5LCxmYMhQXkhoh_fpTB0GsYLBjwpElaV68OmTUzN-AFDgWuqMIpQH5XYDZoYQopg-yHHdsxcQ\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJLqPVxd2KNAmW_izYz4ha5hN4ZEzXnNbk4__FC-xhmaa2vZD3RRtvgPNphH8ZSM9wF4_vSTJZLzQ5Iv0byZxrY\",\"auth\":\"nBC8C_1cvhSTlEEelbk9kw\"}}","app_sandbox":{"constructor":-1132882121,"data2":{}}}
@@ -49,7 +48,7 @@ func (s *AccountServiceImpl) AccountRegisterDevice(ctx context.Context, request 
 		return nil, err
 	}
 
-	registered := account.RegisterDevice(md.AuthId, md.UserId, int8(request.TokenType), request.Token)
+	registered := s.AccountModel.RegisterDevice(md.AuthId, md.UserId, int8(request.TokenType), request.Token)
 
 	glog.Infof("account.registerDevice#637ea878 - reply: {true}")
 	return mtproto.ToBool(registered), nil
