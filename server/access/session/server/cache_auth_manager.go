@@ -50,6 +50,7 @@ type cacheAuthManager struct {
 var _cacheAuthManager *cacheAuthManager
 
 func InitCacheAuthManager(cap int64, discovery *service_discovery.ServiceDiscoveryClientConfig) {
+	// 注册rpc服务
 	conn, err := grpc_util.NewRPCClientByServiceDiscovery(discovery)
 	if err != nil {
 		glog.Error(err)

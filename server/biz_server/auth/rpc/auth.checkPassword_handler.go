@@ -19,12 +19,10 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
-	user2 "github.com/nebulaim/telegramd/biz/core/user"
 )
 
 /*
@@ -42,7 +40,7 @@ import (
 	} else {
 		needShowAlert(LocaleController.getString("AppName", R.string.AppName), error.text);
 	}
- */
+*/
 
 // 客户端调用auth.signIn时返回SESSION_PASSWORD_NEEDED时会触发
 
@@ -61,7 +59,7 @@ func (s *AuthServiceImpl) AuthCheckPassword(ctx context.Context, request *mtprot
 		return nil, err
 	}
 
-	passwordLogic, err := account.MakePasswordData(md.UserId)
+	passwordLogic, err := s.AccountModel.MakePasswordData(md.UserId)
 	if err != nil {
 		glog.Error(err)
 		return nil, err
@@ -74,7 +72,7 @@ func (s *AuthServiceImpl) AuthCheckPassword(ctx context.Context, request *mtprot
 		return nil, err
 	}
 
-	user := user2.GetUserById(md.UserId, md.UserId)
+	user := s.UserModel.GetUserById(md.UserId, md.UserId)
 	authAuthorization := &mtproto.TLAuthAuthorization{Data2: &mtproto.Auth_Authorization_Data{
 		User: user.To_User(),
 	}}

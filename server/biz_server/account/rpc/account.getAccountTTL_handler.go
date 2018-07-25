@@ -19,11 +19,10 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
 )
 
 // account.getAccountTTL#8fc711d = AccountDaysTTL;
@@ -31,8 +30,8 @@ func (s *AccountServiceImpl) AccountGetAccountTTL(ctx context.Context, request *
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
 	glog.Infof("account.getAccountTTL#8fc711d - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
-	days := account.GetAccountDaysTTL(md.UserId)
-	ttl := &mtproto.TLAccountDaysTTL{ Data2: &mtproto.AccountDaysTTL_Data{
+	days := s.AccountModel.GetAccountDaysTTL(md.UserId)
+	ttl := &mtproto.TLAccountDaysTTL{Data2: &mtproto.AccountDaysTTL_Data{
 		Days: days,
 	}}
 

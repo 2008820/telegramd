@@ -18,24 +18,26 @@
 package phone_call
 
 import (
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"github.com/nebulaim/telegramd/biz/base"
-	"math/rand"
-	"time"
-	"github.com/nebulaim/telegramd/biz/dal/dataobject"
-	"github.com/nebulaim/telegramd/biz/dal/dao"
-	base2 "github.com/nebulaim/telegramd/baselib/base"
 	"encoding/hex"
 	"fmt"
+	base2 "github.com/nebulaim/telegramd/baselib/base"
+	"github.com/nebulaim/telegramd/biz/core"
+	"github.com/nebulaim/telegramd/biz/dal/dataobject"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"math/rand"
+	"time"
 )
 
 // TODO(@benqi): Using redis storage phone_call_sessions
 
-type phoneCallLogic PhoneCallSession
+type phoneCallLogic struct {
+	*PhoneCallSession
+	dao *phoneCallsDAO
+}
 
-func NewPhoneCallLogic(adminId, participantId int32, ga []byte, protocol *mtproto.TLPhoneCallProtocol) *phoneCallLogic {
-	session := &phoneCallLogic{
-		Id:                    base.NextSnowflakeId(),
+func (m *PhoneCallModel) NewPhoneCallLogic(adminId, participantId int32, ga []byte, protocol *mtproto.TLPhoneCallProtocol) *phoneCallLogic {
+	phoneCallSession := &PhoneCallSession{
+		Id:                    core.GetUUID(),
 		AdminId:               adminId,
 		AdminAccessHash:       rand.Int63(),
 		ParticipantId:         participantId,
@@ -48,32 +50,36 @@ func NewPhoneCallLogic(adminId, participantId int32, ga []byte, protocol *mtprot
 		State:                 0,
 		Date:                  time.Now().Unix(),
 	}
+	session := &phoneCallLogic{
+		PhoneCallSession: phoneCallSession,
+		dao:              m.dao,
+	}
 
 	do := &dataobject.PhoneCallSessionsDO{
-		CallSessionId: session.Id,
-		AdminId: session.AdminId,
-		AdminAccessHash: session.AdminAccessHash,
-		ParticipantId: session.ParticipantId,
+		CallSessionId:         session.Id,
+		AdminId:               session.AdminId,
+		AdminAccessHash:       session.AdminAccessHash,
+		ParticipantId:         session.ParticipantId,
 		ParticipantAccessHash: session.ParticipantAccessHash,
-		UdpP2p: base2.BoolToInt8(session.UdpP2P),
-		UdpReflector: base2.BoolToInt8(session.UdpReflector),
-		MinLayer: session.MinLayer,
-		MaxLayer: session.MaxLayer,
-		GA: hex.EncodeToString(session.GA),
-		Date: int32(session.Date),
+		UdpP2p:                base2.BoolToInt8(session.UdpP2P),
+		UdpReflector:          base2.BoolToInt8(session.UdpReflector),
+		MinLayer:              session.MinLayer,
+		MaxLayer:              session.MaxLayer,
+		GA:                    hex.EncodeToString(session.GA),
+		Date:                  int32(session.Date),
 	}
-	dao.GetPhoneCallSessionsDAO(dao.DB_MASTER).Insert(do)
+	m.dao.PhoneCallSessionsDAO.Insert(do)
 	return session
 }
 
-func MakePhoneCallLogcByLoad(id int64) (*phoneCallLogic, error) {
-	do := dao.GetPhoneCallSessionsDAO(dao.DB_SLAVE).Select(id)
+func (m *PhoneCallModel) MakePhoneCallLogcByLoad(id int64) (*phoneCallLogic, error) {
+	do := m.dao.PhoneCallSessionsDAO.Select(id)
 	if do == nil {
 		err := fmt.Errorf("not found call session: %d", id)
 		return nil, err
 	}
 
-	session := &phoneCallLogic{
+	phoneCallSession := &PhoneCallSession{
 		Id:                    do.CallSessionId,
 		AdminId:               do.AdminId,
 		AdminAccessHash:       do.AdminAccessHash,
@@ -84,8 +90,13 @@ func MakePhoneCallLogcByLoad(id int64) (*phoneCallLogic, error) {
 		MinLayer:              do.MinLayer,
 		MaxLayer:              do.MaxLayer,
 		// GA:                    do.GA,
-		State:                 0,
-		Date:                  int64(do.Date),
+		State: 0,
+		Date:  int64(do.Date),
+	}
+
+	session := &phoneCallLogic{
+		PhoneCallSession: phoneCallSession,
+		dao:              m.dao,
 	}
 
 	session.GA, _ = hex.DecodeString(do.GA)
@@ -94,15 +105,15 @@ func MakePhoneCallLogcByLoad(id int64) (*phoneCallLogic, error) {
 
 func (p *phoneCallLogic) SetGB(gb []byte) {
 	p.GB = gb
-	dao.GetPhoneCallSessionsDAO(dao.DB_MASTER).UpdateGB(hex.EncodeToString(gb), p.Id)
+	p.dao.PhoneCallSessionsDAO.UpdateGB(hex.EncodeToString(gb), p.Id)
 }
 
 func (p *phoneCallLogic) SetAdminDebugData(dataJson string) {
-	dao.GetPhoneCallSessionsDAO(dao.DB_MASTER).UpdateAdminDebugData(dataJson, p.Id)
+	p.dao.PhoneCallSessionsDAO.UpdateAdminDebugData(dataJson, p.Id)
 }
 
 func (p *phoneCallLogic) SetParticipantDebugData(dataJson string) {
-	dao.GetPhoneCallSessionsDAO(dao.DB_MASTER).UpdateParticipantDebugData(dataJson, p.Id)
+	p.dao.PhoneCallSessionsDAO.UpdateParticipantDebugData(dataJson, p.Id)
 }
 
 func (p *phoneCallLogic) toPhoneCallProtocol() *mtproto.PhoneCallProtocol {
@@ -166,7 +177,7 @@ func (p *phoneCallLogic) ToPhoneCallAccepted() *mtproto.TLPhoneCallAccepted {
 		Date:          int32(p.Date),
 		AdminId:       p.AdminId,
 		ParticipantId: p.ParticipantId,
-		GB: 		   p.GB,
+		GB:            p.GB,
 		Protocol:      p.toPhoneCallProtocol(),
 	}}
 }
@@ -175,15 +186,14 @@ func (p *phoneCallLogic) ToPhoneCallAccepted() *mtproto.TLPhoneCallAccepted {
 func makeConnection() *mtproto.PhoneConnection {
 	return &mtproto.PhoneConnection{
 		Constructor: mtproto.TLConstructor_CRC32_phoneConnection,
-		Data2: 		 &mtproto.PhoneConnection_Data{
-			Id:      50003,
+		Data2: &mtproto.PhoneConnection_Data{
+			Id: 50003,
 			// Ip:      "192.168.4.32",
 			Ip:      "192.168.1.104",
 			Ipv6:    "",
 			Port:    50001,
 			PeerTag: []byte("24ffcbeb7980d28b"),
 		},
-
 	}
 }
 
@@ -191,7 +201,7 @@ func makeConnection() *mtproto.PhoneConnection {
 func (p *phoneCallLogic) ToPhoneCall(selfId int32, keyFingerprint int64) *mtproto.TLPhoneCall {
 	var (
 		accessHash int64
-		gaOrGb []byte
+		gaOrGb     []byte
 	)
 
 	if selfId == p.AdminId {

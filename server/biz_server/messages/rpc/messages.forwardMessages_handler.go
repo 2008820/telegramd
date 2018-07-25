@@ -19,18 +19,17 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/biz/base"
 	message2 "github.com/nebulaim/telegramd/biz/core/message"
-	"time"
-	"github.com/nebulaim/telegramd/biz/core/user"
+	"github.com/nebulaim/telegramd/proto/mtproto"
 	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
+	"time"
 )
 
-func makeForwardMessagesData(selfId int32, idList []int32, peer *base.PeerUtil, ridList []int64) ([]*mtproto.Message, []int64) {
+func (s *MessagesServiceImpl) makeForwardMessagesData(selfId int32, idList []int32, peer *base.PeerUtil, ridList []int64) ([]*mtproto.Message, []int64) {
 	findRandomIdById := func(id int32) int64 {
 		for i := 0; i < len(idList); i++ {
 			if id == idList[i] {
@@ -43,7 +42,7 @@ func makeForwardMessagesData(selfId int32, idList []int32, peer *base.PeerUtil, 
 	// TODO(@benqi): process channel
 
 	// 通过idList找到message
-	messages := message2.GetMessagesByPeerAndMessageIdList2(selfId, idList)
+	messages := s.MessageModel.GetMessagesByPeerAndMessageIdList2(selfId, idList)
 	randomIdList := make([]int64, 0, len(messages))
 	for _, m := range messages {
 		// TODO(@benqi): rid is 0
@@ -71,20 +70,20 @@ func (s *MessagesServiceImpl) MessagesForwardMessages(ctx context.Context, reque
 	//// peer
 	var (
 		// fromPeer = helper.FromInputPeer2(md.UserId, request.GetFromPeer())
-		peer = base.FromInputPeer2(md.UserId, request.GetToPeer())
+		peer              = base.FromInputPeer2(md.UserId, request.GetToPeer())
 		messageOutboxList message2.MessageBoxList
 	)
 
-	outboxMessages, ridList := makeForwardMessagesData(md.UserId, request.GetId(), peer, request.GetRandomId())
+	outboxMessages, ridList := s.makeForwardMessagesData(md.UserId, request.GetId(), peer, request.GetRandomId())
 	for i := 0; i < len(outboxMessages); i++ {
-		messageOutbox := message2.CreateMessageOutboxByNew(md.UserId, peer, ridList[i], outboxMessages[i], func(messageId int32) {
+		messageOutbox := s.MessageModel.CreateMessageOutboxByNew(md.UserId, peer, ridList[i], outboxMessages[i], func(messageId int32) {
 			// 更新会话信息
-			user.CreateOrUpdateByOutbox(md.UserId, peer.PeerType, peer.PeerId, messageId, outboxMessages[i].GetData2().GetMentioned(), false)
+			s.UserModel.CreateOrUpdateByOutbox(md.UserId, peer.PeerType, peer.PeerId, messageId, outboxMessages[i].GetData2().GetMentioned(), false)
 		})
 		messageOutboxList = append(messageOutboxList, messageOutbox)
 	}
 
-	syncUpdates := makeUpdateNewMessageListUpdates(md.UserId, messageOutboxList)
+	syncUpdates := s.makeUpdateNewMessageListUpdates(md.UserId, messageOutboxList)
 	state, err := sync_client.GetSyncClient().SyncUpdatesData(md.AuthId, md.SessionId, md.UserId, syncUpdates.To_Updates())
 	if err != nil {
 		return nil, err
@@ -113,9 +112,9 @@ func (s *MessagesServiceImpl) MessagesForwardMessages(ctx context.Context, reque
 				// 更新会话信息
 				switch peer.PeerType {
 				case base.PEER_USER:
-					user.CreateOrUpdateByInbox(inBoxUserId, peer.PeerType, md.UserId, messageId, outboxMessages[i].GetData2().GetMentioned())
+					s.UserModel.CreateOrUpdateByInbox(inBoxUserId, peer.PeerType, md.UserId, messageId, outboxMessages[i].GetData2().GetMentioned())
 				case base.PEER_CHAT, base.PEER_CHANNEL:
-					user.CreateOrUpdateByInbox(inBoxUserId, peer.PeerType, peer.PeerId, messageId, outboxMessages[i].GetData2().GetMentioned())
+					s.UserModel.CreateOrUpdateByInbox(inBoxUserId, peer.PeerType, peer.PeerId, messageId, outboxMessages[i].GetData2().GetMentioned())
 				}
 			})
 
@@ -129,16 +128,15 @@ func (s *MessagesServiceImpl) MessagesForwardMessages(ctx context.Context, reque
 			}
 		}
 
-		for k, v := range  inBoxeMap {
+		for k, v := range inBoxeMap {
 
-			syncUpdates = makeUpdateNewMessageListUpdates(k, v)
+			syncUpdates = s.makeUpdateNewMessageListUpdates(k, v)
 			sync_client.GetSyncClient().PushToUserUpdatesData(k, syncUpdates.To_Updates())
 		}
 	}
 
 	glog.Infof("messages.forwardMessages#708e0195 - reply: %s", logger.JsonDebugData(reply))
 	return reply.To_Updates(), nil
-
 
 	//shortMessage := model.MessageToUpdateShortMessage(outbox.To_Message())
 	//state, err := sync_client.GetSyncClient().SyncUpdatesData(md.AuthId, md.SessionId, md.UserId, shortMessage.To_Updates())
@@ -153,7 +151,6 @@ func (s *MessagesServiceImpl) MessagesForwardMessages(ctx context.Context, reque
 	//sentMessage = model.MessageToUpdateShortSentMessage(outbox.To_Message())
 	//sentMessage.SetPts(state.Pts)
 	//sentMessage.SetPtsCount(state.PtsCount)
-
 
 	//
 	//if request.GetPeer().GetConstructor() ==  mtproto.TLConstructor_CRC32_inputPeerSelf {

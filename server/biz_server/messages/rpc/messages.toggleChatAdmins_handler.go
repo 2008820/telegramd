@@ -19,13 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
-	"github.com/nebulaim/telegramd/biz/core/chat"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	update2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // messages.toggleChatAdmins#ec8bd9e1 chat_id:int enabled:Bool = Updates;
@@ -33,7 +32,7 @@ func (s *MessagesServiceImpl) MessagesToggleChatAdmins(ctx context.Context, requ
 	md := grpc_util.RpcMetadataFromIncoming(ctx)
 	glog.Infof("messages.toggleChatAdmins#ec8bd9e1 - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
-	chatLogic, err := chat.NewChatLogicById(request.ChatId)
+	chatLogic, err := s.ChatModel.NewChatLogicById(request.ChatId)
 	if err != nil {
 		glog.Error("toggleChatAdmins#ec8bd9e1 - error: ", err)
 		return nil, err
@@ -61,7 +60,6 @@ func (s *MessagesServiceImpl) MessagesToggleChatAdmins(ctx context.Context, requ
 	}}
 
 	sync_client.GetSyncClient().PushToUserNotMeUpdateShortData(md.AuthId, md.SessionId, md.UserId, updateChatAdmins.To_Update())
-
 
 	idList := chatLogic.GetChatParticipantIdList()
 	for _, id := range idList {

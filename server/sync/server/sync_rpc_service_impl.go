@@ -18,16 +18,17 @@
 package server
 
 import (
-	"github.com/nebulaim/telegramd/biz/core/user"
+	// "github.com/nebulaim/telegramd/biz/core/user"
+	"fmt"
+	"github.com/golang/glog"
+	"github.com/nebulaim/telegramd/baselib/base"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	update3 "github.com/nebulaim/telegramd/biz/core/update"
 	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/service/status/proto"
 	"golang.org/x/net/context"
 	"sync"
-	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
-	"github.com/nebulaim/telegramd/baselib/base"
 	"time"
-	"fmt"
-	update3 "github.com/nebulaim/telegramd/biz/core/update"
 )
 
 /*
@@ -46,7 +47,7 @@ import (
             return 3;
         }
     }
- */
+*/
 
 // messages.AffectedHistory
 // messages.AffectedMessages
@@ -57,7 +58,7 @@ type SyncServiceImpl struct {
 	s  *syncServer
 	// TODO(@benqi): 多个连接
 	// updates map[int32]chan *zproto.PushUpdatesNotify
-	pushChan chan *mtproto.PushUpdatesData
+	pushChan  chan *mtproto.PushUpdatesData
 	closeChan chan int
 }
 
@@ -127,13 +128,14 @@ func (s *SyncServiceImpl) pushUpdatesToSession(state *mtproto.ClientUpdatesState
 		}
 	}
 
-	statusList, _ := user.GetOnlineByUserId(updates.GetPushUserId())
-	ss := make(map[int32][]*user.SessionStatus)
-	for _, status := range statusList {
-		if _, ok := ss[status.ServerId]; !ok {
-			ss[status.ServerId] = []*user.SessionStatus{}
+	statusList, _ := s.s.status.GetUserOnlineSessions(updates.GetPushUserId())
+	// statusList, _ := user.GetOnlineByUserId(updates.GetPushUserId())
+	ss := make(map[int32][]*status.SessionEntry)
+	for _, status2 := range statusList.Sessions {
+		if _, ok := ss[status2.ServerId]; !ok {
+			ss[status2.ServerId] = []*status.SessionEntry{}
 		}
-		ss[status.ServerId] = append(ss[status.ServerId], status)
+		ss[status2.ServerId] = append(ss[status2.ServerId], status2)
 	}
 
 	// TODO(@benqi): 预先计算是否需要同步？
@@ -153,7 +155,7 @@ func (s *SyncServiceImpl) pushUpdatesToSession(state *mtproto.ClientUpdatesState
 		for _, ss4 := range ss3 {
 			switch updates.GetPushType() {
 			case mtproto.SyncType_SYNC_TYPE_USER_NOTME:
-				if updates.GetSessionId() != ss4.SessionId {
+				if updates.GetAuthKeyId() != ss4.AuthKeyId {
 					// continue
 					// TODO(@benqi): move to received ack handler
 					if state.Pts != 0 {
@@ -164,7 +166,7 @@ func (s *SyncServiceImpl) pushUpdatesToSession(state *mtproto.ClientUpdatesState
 					continue
 				}
 			case mtproto.SyncType_SYNC_TYPE_USER_ME:
-				if updates.GetSessionId() == ss4.SessionId {
+				if updates.GetAuthKeyId() == ss4.AuthKeyId {
 					continue
 					encodeUpdateData()
 				} else {
@@ -177,7 +179,7 @@ func (s *SyncServiceImpl) pushUpdatesToSession(state *mtproto.ClientUpdatesState
 				}
 				encodeUpdateData()
 			case mtproto.SyncType_SYNC_TYPE_RPC_RESULT:
-				if updates.GetSessionId() == ss4.SessionId {
+				if updates.GetAuthKeyId() == ss4.AuthKeyId {
 					continue
 				} else {
 					continue
@@ -188,8 +190,8 @@ func (s *SyncServiceImpl) pushUpdatesToSession(state *mtproto.ClientUpdatesState
 
 			// push
 			pushData := &mtproto.PushUpdatesData{
-				AuthKeyId:   ss4.AuthKeyId,
-				SessionId:   ss4.SessionId,
+				AuthKeyId: ss4.AuthKeyId,
+				// SessionId:   ss4.SessionId,
 				State:       state,
 				UpdatesData: updatesData,
 			}
@@ -248,7 +250,7 @@ func updateShortChatMessageToMessage(shortMessage *mtproto.TLUpdateShortChatMess
 }
 
 func updateShortToUpdateNewMessage(userId int32, shortMessage *mtproto.TLUpdateShortMessage) *mtproto.Update {
-	updateNew := &mtproto.TLUpdateNewMessage{ Data2: &mtproto.Update_Data{
+	updateNew := &mtproto.TLUpdateNewMessage{Data2: &mtproto.Update_Data{
 		Message_1: updateShortMessageToMessage(userId, shortMessage),
 		Pts:       shortMessage.GetPts(),
 		PtsCount:  shortMessage.GetPtsCount(),
@@ -257,7 +259,7 @@ func updateShortToUpdateNewMessage(userId int32, shortMessage *mtproto.TLUpdateS
 }
 
 func updateShortChatToUpdateNewMessage(userId int32, shortMessage *mtproto.TLUpdateShortChatMessage) *mtproto.Update {
-	updateNew := &mtproto.TLUpdateNewMessage{ Data2: &mtproto.Update_Data{
+	updateNew := &mtproto.TLUpdateNewMessage{Data2: &mtproto.Update_Data{
 		Message_1: updateShortChatMessageToMessage(shortMessage),
 		Pts:       shortMessage.GetPts(),
 		PtsCount:  shortMessage.GetPtsCount(),
@@ -269,11 +271,11 @@ func updateShortChatToUpdateNewMessage(userId int32, shortMessage *mtproto.TLUpd
 // rpc SyncUpdatesData(UpdatesRequest) returns (ClientUpdatesState);
 func processUpdatesRequest(request *mtproto.UpdatesRequest) (*mtproto.ClientUpdatesState, error) {
 	var (
-		pushUserId = request.GetPushUserId()
+		pushUserId    = request.GetPushUserId()
 		pts, ptsCount int32
-		seq = int32(0)
-		updates = request.GetUpdates()
-		date = int32(time.Now().Unix())
+		seq           = int32(0)
+		updates       = request.GetUpdates()
+		date          = int32(time.Now().Unix())
 	)
 
 	switch updates.GetConstructor() {
@@ -300,11 +302,11 @@ func processUpdatesRequest(request *mtproto.UpdatesRequest) (*mtproto.ClientUpda
 		for _, update := range updates2.GetUpdates() {
 			switch update.GetConstructor() {
 			case mtproto.TLConstructor_CRC32_updateNewMessage,
-				 mtproto.TLConstructor_CRC32_updateReadHistoryOutbox,
-				 mtproto.TLConstructor_CRC32_updateReadHistoryInbox,
-				 mtproto.TLConstructor_CRC32_updateWebPage,
-				 mtproto.TLConstructor_CRC32_updateReadMessagesContents,
-				 mtproto.TLConstructor_CRC32_updateEditMessage:
+				mtproto.TLConstructor_CRC32_updateReadHistoryOutbox,
+				mtproto.TLConstructor_CRC32_updateReadHistoryInbox,
+				mtproto.TLConstructor_CRC32_updateWebPage,
+				mtproto.TLConstructor_CRC32_updateReadMessagesContents,
+				mtproto.TLConstructor_CRC32_updateEditMessage:
 
 				pts = int32(update3.NextPtsId(base.Int32ToString(pushUserId)))
 				ptsCount = 1

@@ -19,12 +19,11 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/base"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/base"
-	"github.com/nebulaim/telegramd/biz/core/auth"
 )
 
 /*
@@ -74,7 +73,7 @@ import (
 			needShowAlert(LocaleController.getString("AppName", R.string.AppName), error.text);
 		}
 	}
- */
+*/
 
 // auth.sendCode#86aef0ec flags:# allow_flashcall:flags.0?true phone_number:string current_number:flags.0?Bool api_id:int api_hash:string = auth.SentCode;
 func (s *AuthServiceImpl) AuthSendCode(ctx context.Context, request *mtproto.TLAuthSendCode) (*mtproto.Auth_SentCode, error) {
@@ -86,7 +85,7 @@ func (s *AuthServiceImpl) AuthSendCode(ctx context.Context, request *mtproto.TLA
 
 	//// 3. check number
 	//// 客户端发送的手机号格式为: "+86 111 1111 1111"，归一化
-	phoneNumber, err :=  base.CheckAndGetPhoneNumber(request.GetPhoneNumber())
+	phoneNumber, err := base.CheckAndGetPhoneNumber(request.GetPhoneNumber())
 	if err != nil {
 		// PHONE_NUMBER_INVALID
 		glog.Error(err)
@@ -116,7 +115,7 @@ func (s *AuthServiceImpl) AuthSendCode(ctx context.Context, request *mtproto.TLA
 
 	// glog.Info("phoneNumber: ", phoneNumber)
 	// PHONE_NUMBER_BANNED: Banned phone number
-	banned := auth.CheckBannedByPhoneNumber(phoneNumber)
+	banned := s.AuthModel.CheckBannedByPhoneNumber(phoneNumber)
 	if banned {
 		err = mtproto.NewRpcError(int32(mtproto.TLRpcErrorCodes_PHONE_NUMBER_BANNED), "auth.sendCode#86aef0ec: phone number banned.")
 		glog.Error(err)
@@ -150,13 +149,13 @@ func (s *AuthServiceImpl) AuthSendCode(ctx context.Context, request *mtproto.TLA
 	//	// TODO(@benqi): 由userId优选
 	//}
 
-	code := auth.MakeCodeData(md.AuthId, phoneNumber)
+	code := s.AuthModel.MakeCodeData(md.AuthId, phoneNumber)
 
 	// 检查phoneNumber是否异常
 	// TODO(@benqi): 定义sendCode限制规则
 	// PhoneNumberFlood
 	// FLOOD_WAIT
-	phoneRegistered := auth.CheckPhoneNumberExist(phoneNumber)
+	phoneRegistered := s.AuthModel.CheckPhoneNumberExist(phoneNumber)
 	err = code.DoSendCode(phoneRegistered, request.AllowFlashcall, currentNumber, request.ApiId, request.ApiHash)
 	if err != nil {
 		glog.Error(err)

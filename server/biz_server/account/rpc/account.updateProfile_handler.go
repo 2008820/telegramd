@@ -19,13 +19,11 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	user2 "github.com/nebulaim/telegramd/biz/core/user"
-	"github.com/nebulaim/telegramd/biz/core/account"
 	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // account.updateProfile#78515775 flags:# first_name:flags.0?string last_name:flags.1?string about:flags.2?string = User;
@@ -44,16 +42,16 @@ func (s *AccountServiceImpl) AccountUpdateProfile(ctx context.Context, request *
 		return nil, err
 	}
 
-	user := user2.GetUserById(md.UserId, md.UserId)
+	user := s.UserModel.GetUserById(md.UserId, md.UserId)
 
 	if len(request.FirstName) > 0 {
-		account.UpdateFirstAndLastName(md.UserId, request.FirstName, request.LastName)
+		s.AccountModel.UpdateFirstAndLastName(md.UserId, request.FirstName, request.LastName)
 
 		// return new first_name and last_name.
 		user.SetFirstName(request.FirstName)
 		user.SetLastName(request.LastName)
 	} else {
-		account.UpdateAbout(md.UserId, request.About)
+		s.AccountModel.UpdateAbout(md.UserId, request.About)
 	}
 
 	// sync to other sessions

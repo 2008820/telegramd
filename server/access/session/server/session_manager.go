@@ -18,11 +18,11 @@
 package server
 
 import (
-	"fmt"
-	"sync"
 	"encoding/binary"
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/nebulaim/telegramd/proto/zproto"
+	"sync"
 )
 
 type sessionManager struct {
@@ -100,9 +100,8 @@ func (s *sessionManager) onSessionClientClosed(clientConnID uint64, md *zproto.Z
 	return sessList.onSessionClientClosed(makeClientConnID(sessData.ConnType, clientConnID, sessData.SessionId))
 }
 
-
 func (s *sessionManager) onSyncData(authKeyId, sessionId int64, md *zproto.ZProtoMetadata, data *messageData) error {
-	glog.Infof("authKeyId - receive data: {auth_key_id: %d, session_id: %d, md: %s, data: %v}",
+	glog.Infof("onSyncData - receive data: {auth_key_id: %d, session_id: %d, md: %s, data: %s}",
 		authKeyId,
 		sessionId,
 		md,

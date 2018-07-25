@@ -19,18 +19,18 @@ package server
 
 import (
 	"container/list"
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/nebulaim/telegramd/baselib/logger"
-	"github.com/nebulaim/telegramd/proto/zproto"
 	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/proto/zproto"
 	"math/rand"
 	"time"
-	"fmt"
 )
 
 const (
 	kDefaultPingTimeout = 30
-	kPingAddTimeout = 15
+	kPingAddTimeout     = 15
 )
 
 const (
@@ -43,6 +43,10 @@ type messageData struct {
 	confirmFlag  bool
 	compressFlag bool
 	obj          mtproto.TLObject
+}
+
+func (m *messageData) String() string {
+	return fmt.Sprintf("{confirmFlag: %v, compressFlag: %v, obj: {%s}}", m.confirmFlag, m.compressFlag, m.obj)
 }
 
 type pendingMessage struct {
@@ -68,8 +72,7 @@ type clientSessionHandler struct {
 	clientState      int
 	pendingMessages  []*pendingMessage
 	isUpdates        bool
-	rpcMessages 	 []*networkApiMessage
-
+	rpcMessages      []*networkApiMessage
 }
 
 func newClientSessionHandler(sessionId, salt, firstMsgId int64, m *clientSessionManager) *clientSessionHandler {
@@ -102,7 +105,7 @@ func (c *clientSessionHandler) onTimer() bool {
 	date := time.Now().Unix()
 
 	for e := c.apiMessages.Front(); e != nil; e = e.Next() {
-		if date - e.Value.(*networkApiMessage).date > 300 {
+		if date-e.Value.(*networkApiMessage).date > 300 {
 			c.apiMessages.Remove(e)
 		}
 	}
@@ -194,9 +197,9 @@ func (c *clientSessionHandler) sendPendingMessagesToClient(connID ClientConnID, 
 				msgId = mtproto.GenerateMessageId()
 			}
 			message2 := mtproto.TLMessage2{
-				MsgId: msgId,
-				Seqno: c.generateMessageSeqNo(m.confirm),
-				Bytes: int32(len(m.tl.Encode())),
+				MsgId:  msgId,
+				Seqno:  c.generateMessageSeqNo(m.confirm),
+				Bytes:  int32(len(m.tl.Encode())),
 				Object: m.tl,
 			}
 			msgContainer.Messages = append(msgContainer.Messages, message2)
@@ -450,7 +453,7 @@ func (c *clientSessionHandler) onMessageData(connID ClientConnID, md *zproto.ZPr
 	var (
 		hasRpcRequest bool
 		hasHttpWait   bool
-		ok bool
+		ok            bool
 	)
 
 	for _, message := range messages {
@@ -532,7 +535,6 @@ func (c *clientSessionHandler) onMessageData(connID ClientConnID, md *zproto.ZPr
 			}
 		}
 	}
-
 
 	//if hasHttpWait {
 	//	if !hasRpcRequest {
@@ -674,7 +676,6 @@ func (c *clientSessionHandler) onHttpWait(connID ClientConnID, md *zproto.ZProto
 		msgId,
 		seqNo,
 		logger.JsonDebugData(request))
-
 
 	c.isUpdates = true
 	// c.manager.setUserOnline(c.sessionId, connID)

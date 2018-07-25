@@ -18,46 +18,148 @@
 package core
 
 import (
-	// "github.com/jmoiron/sqlx"
-	// "sync"
-	// "github.com/nebulaim/telegramd/baselib/redis_client"
+	base2 "github.com/nebulaim/telegramd/baselib/base"
+	"github.com/nebulaim/telegramd/biz/base"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/service/idgen/client"
 )
 
 const (
-	TOKEN_TYPE_APNS = 1
-	TOKEN_TYPE_GCM = 2
-	TOKEN_TYPE_MPNS = 3
-	TOKEN_TYPE_SIMPLE_PUSH = 4
+	TOKEN_TYPE_APNS         = 1
+	TOKEN_TYPE_GCM          = 2
+	TOKEN_TYPE_MPNS         = 3
+	TOKEN_TYPE_SIMPLE_PUSH  = 4
 	TOKEN_TYPE_UBUNTU_PHONE = 5
-	TOKEN_TYPE_BLACKBERRY = 6
+	TOKEN_TYPE_BLACKBERRY   = 6
 	// Android里使用
 	TOKEN_TYPE_INTERNAL_PUSH = 7
 	// web
 	TOKEN_TYPE_WEB_PUSH = 10
-	TOKEN_TYPE_MAXSIZE = 10
+	TOKEN_TYPE_MAXSIZE  = 10
 )
 
-//type CoreModel interface {
-//	InstallMysqlClients(dbClients sync.Map)
-//	InstallRedisClients(map[string]*redis_client.RedisPool)
-//}
+type CoreModel interface {
+	InstallModel()
+	RegisterCallback(cb interface{})
+}
+
+// type Instance func() Initializer
+var uuidGen idgen.UUIDGen
+
+func GetUUID() (uuid int64) {
+	uuid, _ = uuidGen.GetUUID()
+	return
+}
+
+var models = []CoreModel{}
+
+func RegisterCoreModel(model CoreModel) {
+	models = append(models, model)
+}
+
+// 必须在mysql／redis等依赖安装完后才能执行
+func InstallCoreModels(serverId int32, inited func()) []CoreModel {
+	if inited != nil {
+		inited()
+	}
+
+	uuidGen, _ = idgen.NewUUIDGen("snowflake", base2.Int32ToString(serverId))
+
+	for _, m := range models {
+		m.InstallModel()
+
+		for _, m2 := range models {
+			if m != m2 {
+				m.RegisterCallback(m2)
+			}
+		}
+	}
+
+	return models
+}
+
+type NotifySettingCallback interface {
+	GetNotifySettings(selfUserId int32, peer *base.PeerUtil) *mtproto.PeerNotifySettings
+}
+
+type PhotoCallback interface {
+	GetUserProfilePhoto(photoId int64) *mtproto.UserProfilePhoto
+	GetChatPhoto(photoId int64) *mtproto.ChatPhoto
+	GetPhoto(photoId int64) *mtproto.Photo
+}
+
+type ContactCallback interface {
+	GetContactAndMutual(selfUserId, id int32) (bool, bool)
+}
+
+///*
+//	// TODO(@benqi): chat notifySetting...
+//	//if notifySettingFunc == nil {
+//	//	notifySettings = &mtproto.PeerNotifySettings{
+//	//		Constructor: mtproto.TLConstructor_CRC32_peerNotifySettings,
+//	//		Data2: &mtproto.PeerNotifySettings_Data{
+//	//			ShowPreviews: true,
+//	//			Silent:       false,
+//	//			MuteUntil:    0,
+//	//			Sound:        "default",
+//	//		},
+//	//	}
+//	//} else {
+//	notifySettings := cb1(selfUserId, peer)
+//	//}
+// */
+//type GetNotifySettingsCallback func (selfUserId int32, peer *base.PeerUtil) *mtproto.PeerNotifySettings
+//type GetUserProfilePhotoCallback func (photoId int64) *mtproto.UserProfilePhoto
+//type GetChatPhotoCallback func (photoId int64) *mtproto.ChatPhoto
 //
-//// type Instance func() Initializer
-//
-//var models = []CoreModel{}
-//
-//func RegisterCoreModel(model CoreModel) {
-//	models = append(models, model)
-//}
-//
-//func InstallMysqlClients(clients sync.Map) {
-//	for _, m := range models {
-//		m.InstallMysqlClients(clients)
+///*
+//	// TODO(@benqi):
+//	if channelData.GetPhotoId() == 0 {
+//		photoEmpty := &mtproto.TLPhotoEmpty{Data2: &mtproto.Photo_Data{
+//			Id: 0,
+//		}}
+//		photo = photoEmpty.To_Photo()
+//	} else {
+//		//channelPhoto := &mtproto.TLPhoto{ Data2: &mtproto.Photo_Data{
+//		//	Id:          channelData.channel.PhotoId,
+//		//	HasStickers: false,
+//		//	AccessHash:  channelData.channel.PhotoId, // photo2.GetFileAccessHash(file.GetData2().GetId(), file.GetData2().GetParts()),
+//		//	Date:        int32(time.Now().Unix()),
+//		//	Sizes:       sizes,
+//		//}}
+//		photo = cb2(channelData.channel.PhotoId)
+//		// channelPhoto.To_Photo()
 //	}
-//}
+// */
+//type GetPhotoCallback func (photoId int64) *mtproto.Photo
 //
-//func InstallRedisClients(clients map[string]*redis_client.RedisPool) {
-//	for _, m := range models {
-//		m.InstallRedisClients(clients)
-//	}
-//}
+////func MakeUserProfilePhoto(photoId int64, sizes []*mtproto.PhotoSize) *mtproto.UserProfilePhoto {
+////	if len(sizes) == 0 {
+////		return mtproto.NewTLUserProfilePhotoEmpty().To_UserProfilePhoto()
+////	}
+////
+////	// TODO(@benqi): check PhotoSize is photoSizeEmpty
+////	photo := &mtproto.TLUserProfilePhoto{Data2: &mtproto.UserProfilePhoto_Data{
+////		PhotoId: photoId,
+////		PhotoSmall: sizes[0].GetData2().GetLocation(),
+////		PhotoBig: sizes[len(sizes)-1].GetData2().GetLocation(),
+////	}}
+////
+////	return photo.To_UserProfilePhoto()
+////}
+////
+////func MakeChatPhoto(sizes []*mtproto.PhotoSize) *mtproto.ChatPhoto {
+////	if len(sizes) == 0 {
+////		return mtproto.NewTLChatPhotoEmpty().To_ChatPhoto()
+////	}
+////
+////	// TODO(@benqi): check PhotoSize is photoSizeEmpty
+////	photo := &mtproto.TLChatPhoto{Data2: &mtproto.ChatPhoto_Data{
+////		PhotoSmall: sizes[0].GetData2().GetLocation(),
+////		PhotoBig: sizes[len(sizes)-1].GetData2().GetLocation(),
+////	}}
+////
+////	return photo.To_ChatPhoto()
+////}
+//
+//type CheckContactAndMutualCallback func (selfUserId, id int32) (bool, bool)

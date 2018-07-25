@@ -19,12 +19,11 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
+	"github.com/nebulaim/telegramd/baselib/logger"
+	"github.com/nebulaim/telegramd/biz/core"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/account"
-	"github.com/nebulaim/telegramd/biz/core"
 )
 
 // Layer74
@@ -48,7 +47,7 @@ func (s *AccountServiceImpl) AccountRegisterDeviceLayer74(ctx context.Context, r
 		return nil, err
 	}
 
-	registered := account.RegisterDevice(md.AuthId, md.UserId, int8(request.TokenType), request.Token)
+	registered := s.AccountModel.RegisterDevice(md.AuthId, md.UserId, int8(request.TokenType), request.Token)
 
 	glog.Infof("account.registerDevice#637ea878 - reply: {true}")
 	return mtproto.ToBool(registered), nil

@@ -18,11 +18,10 @@
 package account
 
 import (
-	"github.com/nebulaim/telegramd/biz/dal/dao"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"encoding/hex"
 	"bytes"
+	"encoding/hex"
 	"github.com/golang/glog"
+	"github.com/nebulaim/telegramd/proto/mtproto"
 )
 
 /*
@@ -41,8 +40,7 @@ import (
 	req.new_settings.hint = hint;
 	req.new_settings.new_password_hash = Utilities.computeSHA256(hash, 0, hash.length);
 	req.new_settings.new_salt = new_salt;
- */
-
+*/
 
 // TODO(@benqi): add error code
 // PASSWORD_HASH_INVALID
@@ -59,28 +57,29 @@ import (
 // case 4: email已经验证
 
 const (
-	kStatePasswordNone = 0
-	kStateNoRecoveryPassword = 1
+	kStatePasswordNone             = 0
+	kStateNoRecoveryPassword       = 1
 	kStateEmailUnconfirmedPassword = 2
-	kStateConfirmedPassword = 3
+	kStateConfirmedPassword        = 3
 )
 
 const (
 	kServerSaltLen = 8
-	kSaltLen = 16
-	kHashLen = 32
+	kSaltLen       = 16
+	kHashLen       = 32
 )
 
 type passwordData struct {
-	userId      int32
-	serverSalt  []byte
-	salt        []byte
-	hash        []byte
+	userId     int32
+	serverSalt []byte
+	salt       []byte
+	hash       []byte
 	// TODO(@benqi): process hint
-	hint        string
+	hint string
 	// hasRecovery bool
-	email       string
-	state       int
+	email string
+	state int
+	dao   *accountsDAO
 }
 
 func makeEMailPattern(email string) string {
@@ -90,13 +89,13 @@ func makeEMailPattern(email string) string {
 
 // hasRecovery
 
-func MakePasswordData(userId int32) (*passwordData, error) {
+func (m *AccountModel) MakePasswordData(userId int32) (*passwordData, error) {
 	var (
-		err error
+		err                    error
 		serverSalt, salt, hash []byte
 	)
 
-	do := dao.GetUserPasswordsDAO(dao.DB_SLAVE).SelectByUserId(userId)
+	do := m.dao.UserPasswordsDAO.SelectByUserId(userId)
 	if do == nil {
 		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_INTERNAL_SERVER_ERROR)
 		glog.Error(err, ": not found user_password row, user_id: ", userId)
@@ -130,16 +129,44 @@ func MakePasswordData(userId int32) (*passwordData, error) {
 
 	// TODO(@benqi): check data.
 	data := &passwordData{
-		userId: userId,
+		userId:     userId,
 		serverSalt: serverSalt,
-		salt: salt,
-		hash: hash,
-		hint: do.Hint,
-		// hasRecovery: do.HasRecovery == 1,
-		email: do.Email,
-		state: int(do.State),
+		salt:       salt,
+		hash:       hash,
+		hint:       do.Hint,
+		email:      do.Email,
+		state:      int(do.State),
+		dao:        m.dao,
 	}
 	return data, nil
+}
+
+func (m *AccountModel) CheckRecoverCode(userId int32, code string) error {
+	do := m.dao.UserPasswordsDAO.SelectCode(userId)
+	if do == nil {
+		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_INTERNAL_SERVER_ERROR)
+		glog.Error(err, ": not found user_password row, user_id - ", userId)
+		return err
+	}
+
+	// TODO(@benqi): FLOOD_WAIT, check attempts??
+
+	if do.Code != code {
+		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_CODE_INVALID)
+		glog.Errorf("%s: userId - %d, code - %s", err, userId, code)
+		return err
+	}
+	return nil
+}
+
+// SESSION_PASSWORD_NEEDED
+func (m *AccountModel) CheckSessionPasswordNeeded(userId int32) bool {
+	// TODO(@benqi):  仅仅从数据库里取state字段
+	do := m.dao.UserPasswordsDAO.SelectByUserId(userId)
+	if do == nil {
+		return false
+	}
+	return do.State == kStateNoRecoveryPassword || do.State == kStateConfirmedPassword
 }
 
 func (p *passwordData) saveToDB() {
@@ -153,7 +180,7 @@ func (p *passwordData) saveToDB() {
 		hash = hex.EncodeToString(p.hash)
 	}
 
-	dao.GetUserPasswordsDAO(dao.DB_MASTER).Update(salt, hash, p.hint, p.email, int8(p.state), p.userId)
+	p.dao.UserPasswordsDAO.Update(salt, hash, p.hint, p.email, int8(p.state), p.userId)
 }
 
 func (p *passwordData) getHasRecovery() *mtproto.Bool {
@@ -170,10 +197,10 @@ func (p *passwordData) GetPassword() *mtproto.Account_Password {
 		return noPassword.To_Account_Password()
 	case kStateNoRecoveryPassword:
 		password := &mtproto.TLAccountPassword{Data2: &mtproto.Account_Password_Data{
-			NewSalt:                 p.serverSalt,
-			CurrentSalt:             p.salt,
-			Hint:                    p.hint,
-			HasRecovery:             mtproto.ToBool(false),
+			NewSalt:     p.serverSalt,
+			CurrentSalt: p.salt,
+			Hint:        p.hint,
+			HasRecovery: mtproto.ToBool(false),
 			// TODO(@benqi): make pattern
 			EmailUnconfirmedPattern: "",
 		}}
@@ -186,10 +213,10 @@ func (p *passwordData) GetPassword() *mtproto.Account_Password {
 		return noPassword.To_Account_Password()
 	case kStateConfirmedPassword:
 		password := &mtproto.TLAccountPassword{Data2: &mtproto.Account_Password_Data{
-			NewSalt:                 p.serverSalt,
-			CurrentSalt:             p.salt,
-			Hint:                    p.hint,
-			HasRecovery:             mtproto.ToBool(true),
+			NewSalt:     p.serverSalt,
+			CurrentSalt: p.salt,
+			Hint:        p.hint,
+			HasRecovery: mtproto.ToBool(true),
 			// TODO(@benqi): make pattern
 			EmailUnconfirmedPattern: "",
 		}}
@@ -258,7 +285,7 @@ func (p *passwordData) UpdatePasswordSetting(currentPasswordHash, newSalt, newPa
 			return err
 		}
 
-		if len(newPasswordHash) !=0 {
+		if len(newPasswordHash) != 0 {
 			err = mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_NEW_PASSWORD_BAD)
 			glog.Error(err, ": new_password_hash need empty.")
 			return err
@@ -346,32 +373,4 @@ func (p *passwordData) RequestPasswordRecovery() (*mtproto.Auth_PasswordRecovery
 		EmailPattern: p.email,
 	}}
 	return passwordRecovery.To_Auth_PasswordRecovery(), nil
-}
-
-func CheckRecoverCode(userId int32, code string) error {
-	do := dao.GetUserPasswordsDAO(dao.DB_SLAVE).SelectCode(userId)
-	if do == nil {
-		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_INTERNAL_SERVER_ERROR)
-		glog.Error(err, ": not found user_password row, user_id - ", userId)
-		return err
-	}
-
-	// TODO(@benqi): FLOOD_WAIT, check attempts??
-
-	if do.Code != code {
-		err := mtproto.NewRpcError2(mtproto.TLRpcErrorCodes_CODE_INVALID)
-		glog.Errorf("%s: userId - %d, code - %s", err, userId, code)
-		return err
-	}
-	return nil
-}
-
-// SESSION_PASSWORD_NEEDED
-func CheckSessionPasswordNeeded(userId int32) bool {
-	// TODO(@benqi):  仅仅从数据库里取state字段
-	do := dao.GetUserPasswordsDAO(dao.DB_SLAVE).SelectByUserId(userId)
-	if do == nil {
-		return false
-	}
-	return do.State == kStateNoRecoveryPassword || do.State == kStateConfirmedPassword
 }

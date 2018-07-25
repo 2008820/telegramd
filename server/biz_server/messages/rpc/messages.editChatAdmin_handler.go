@@ -19,14 +19,12 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	"github.com/nebulaim/telegramd/biz/core/chat"
-	"github.com/nebulaim/telegramd/server/sync/sync_client"
-	"github.com/nebulaim/telegramd/biz/core/user"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	update2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
+	"github.com/nebulaim/telegramd/server/sync/sync_client"
+	"golang.org/x/net/context"
 )
 
 // messages.editChatAdmin#a9e69f2e chat_id:int user_id:InputUser is_admin:Bool = Bool;
@@ -35,9 +33,9 @@ func (s *MessagesServiceImpl) MessagesEditChatAdmin(ctx context.Context, request
 	glog.Infof("messages.editChatAdmin#a9e69f2e - metadata: %s, request: %s", logger.JsonDebugData(md), logger.JsonDebugData(request))
 
 	var (
-		userId int32
+		userId  int32
 		isAdmin = mtproto.FromBool(request.GetIsAdmin())
-		err error
+		err     error
 	)
 
 	switch request.GetUserId().GetConstructor() {
@@ -50,7 +48,7 @@ func (s *MessagesServiceImpl) MessagesEditChatAdmin(ctx context.Context, request
 		return nil, err
 	}
 
-	chatLogic, err := chat.NewChatLogicById(request.ChatId)
+	chatLogic, err := s.ChatModel.NewChatLogicById(request.ChatId)
 	if err != nil {
 		glog.Error("messages.editChatAdmin#a9e69f2e - error: ", err)
 		return nil, err
@@ -70,7 +68,7 @@ func (s *MessagesServiceImpl) MessagesEditChatAdmin(ctx context.Context, request
 	for _, id := range idList {
 		updates := update2.NewUpdatesLogic(md.UserId)
 		updates.AddUpdate(updateChatParticipants.To_Update())
-		updates.AddUsers(user.GetUsersBySelfAndIDList(id, idList))
+		updates.AddUsers(s.UserModel.GetUsersBySelfAndIDList(id, idList))
 		updates.AddChat(chatLogic.ToChat(md.UserId))
 		sync_client.GetSyncClient().PushToUserUpdatesData(id, updates.ToUpdates())
 	}

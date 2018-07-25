@@ -18,6 +18,10 @@
 package rpc
 
 import (
+	"github.com/nebulaim/telegramd/biz/core"
+	"github.com/nebulaim/telegramd/biz/core/message"
+	"github.com/nebulaim/telegramd/biz/core/phone_call"
+	"github.com/nebulaim/telegramd/biz/core/user"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 )
 
@@ -32,6 +36,7 @@ import (
 var (
 	fingerprint uint64 = 12240908862933197005
 )
+
 const (
 	PHONE_STATE_UNKNOWN = iota
 	PHONE_STATE_REQUEST_CALL
@@ -46,14 +51,34 @@ type phoneCallSession struct {
 	participantId         int32
 	participantAccessHash int64
 	date                  int32
-	state                 int 		// phoneCallstate
+	state                 int // phoneCallstate
 	protocol              *mtproto.TLPhoneCallProtocol
-	g_b                   []byte	// acceptCall
-	g_a                   []byte	// confirm
+	g_b                   []byte // acceptCall
+	g_a                   []byte // confirm
 }
 
 // TODO(@benqi): 存储到redis里
 var phoneCallSessionManager = make(map[int64]*phoneCallSession)
 
 type PhoneServiceImpl struct {
+	*user.UserModel
+	*phone_call.PhoneCallModel
+	*message.MessageModel
+}
+
+func NewPhoneServiceImpl(models []core.CoreModel) *PhoneServiceImpl {
+	impl := &PhoneServiceImpl{}
+
+	for _, m := range models {
+		switch m.(type) {
+		case *phone_call.PhoneCallModel:
+			impl.PhoneCallModel = m.(*phone_call.PhoneCallModel)
+		case *user.UserModel:
+			impl.UserModel = m.(*user.UserModel)
+		case *message.MessageModel:
+			impl.MessageModel = m.(*message.MessageModel)
+		}
+	}
+
+	return impl
 }

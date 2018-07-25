@@ -21,7 +21,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
 	"github.com/nebulaim/telegramd/baselib/logger"
-	"github.com/nebulaim/telegramd/biz/core/user"
 	"github.com/nebulaim/telegramd/proto/mtproto"
 	"golang.org/x/net/context"
 )
@@ -39,10 +38,10 @@ func (s *UsersServiceImpl) UsersGetUsers(ctx context.Context, request *mtproto.T
 	for _, inputUser := range request.Id {
 		switch inputUser.GetConstructor() {
 		case mtproto.TLConstructor_CRC32_inputUserSelf:
-			userData := user.GetUserById(md.GetUserId(), md.GetUserId())
+			userData := s.UserModel.GetUserById(md.GetUserId(), md.GetUserId())
 			userList.Datas = append(userList.Datas, userData.To_User())
 		case mtproto.TLConstructor_CRC32_inputUser:
-			userData := user.GetUserById(md.GetUserId(), inputUser.GetData2().GetUserId())
+			userData := s.UserModel.GetUserById(md.GetUserId(), inputUser.GetData2().GetUserId())
 			userList.Datas = append(userList.Datas, userData.To_User())
 		case mtproto.TLConstructor_CRC32_inputUserEmpty:
 		}

@@ -19,17 +19,14 @@ package rpc
 
 import (
 	"github.com/golang/glog"
-	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/baselib/grpc_util"
-	"github.com/nebulaim/telegramd/proto/mtproto"
-	"golang.org/x/net/context"
-	// "time"
-	"github.com/nebulaim/telegramd/biz/core/channel"
-	"github.com/nebulaim/telegramd/biz/core/message"
+	"github.com/nebulaim/telegramd/baselib/logger"
 	"github.com/nebulaim/telegramd/biz/base"
+	"github.com/nebulaim/telegramd/biz/core"
 	update2 "github.com/nebulaim/telegramd/biz/core/update"
+	"github.com/nebulaim/telegramd/proto/mtproto"
 	"github.com/nebulaim/telegramd/server/sync/sync_client"
-	"github.com/nebulaim/telegramd/biz/core/user"
+	"golang.org/x/net/context"
 )
 
 /*
@@ -108,7 +105,7 @@ import (
       date: 1529328455 [INT],
       seq: 0 [INT],
     },
- */
+*/
 
 // channels.createChannel#f4893d7f flags:# broadcast:flags.0?true megagroup:flags.1?true title:string about:string = Updates;
 func (s *ChannelsServiceImpl) ChannelsCreateChannel(ctx context.Context, request *mtproto.TLChannelsCreateChannel) (*mtproto.Updates, error) {
@@ -120,23 +117,22 @@ func (s *ChannelsServiceImpl) ChannelsCreateChannel(ctx context.Context, request
 	//randomId := md.ClientMsgId
 
 	channelUserIdList := []int32{md.UserId}
-	channel := channel.NewChannelLogicByCreateChannel(md.UserId, channelUserIdList, request.GetTitle(), request.GetAbout())
+	channel := s.ChannelModel.NewChannelLogicByCreateChannel(md.UserId, channelUserIdList, request.GetTitle(), request.GetAbout())
 
 	peer := &base.PeerUtil{
 		PeerType: base.PEER_CHANNEL,
-		PeerId: channel.GetChannelId(),
+		PeerId:   channel.GetChannelId(),
 	}
 
 	createChannelMessage := channel.MakeCreateChannelMessage(md.UserId)
-	randomId := base.NextSnowflakeId()
+	randomId := core.GetUUID()
 
 	// 1. 创建channel
 	// 2. 创建channel createChannel message
-	
-	channelBox := message.CreateChannelMessageBoxByNew(md.UserId, channel.GetChannelId(), randomId, createChannelMessage, func(messageId int32) {
-		user.CreateOrUpdateByOutbox(md.UserId, peer.PeerType, peer.PeerId, messageId, false, false)
-	})
 
+	channelBox := s.MessageModel.CreateChannelMessageBoxByNew(md.UserId, channel.GetChannelId(), randomId, createChannelMessage, func(messageId int32) {
+		s.UserModel.CreateOrUpdateByOutbox(md.UserId, peer.PeerType, peer.PeerId, messageId, false, false)
+	})
 
 	syncUpdates := update2.NewUpdatesLogic(md.UserId)
 	//updateChatParticipants := &mtproto.TLUpdateChatParticipants{Data2: &mtproto.Update_Data{
